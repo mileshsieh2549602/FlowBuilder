@@ -4,9 +4,10 @@
   "description": "Figma plugin for accelerating wireframe, user flow, and UI flow mapping.",
   "private": true,
   "scripts": {
-    "build": "npm run build:code && npm run build:ui",
+    "build": "npm run build:code && npm run build:ui && npm run build:uihtml",
     "build:code": "esbuild src/code.ts --bundle --format=iife --target=es2018 --outfile=dist/code.js",
     "build:ui": "esbuild src/ui.ts --bundle --target=es2018 --outfile=dist/ui.js",
+    "build:uihtml": "cp src/ui.html dist/ui.html",
     "dev": "npm run build"
   },
   "devDependencies": {
