@@ -1,99 +1,54 @@
-type FlowType = "wireframe" | "user-flow" | "ui-flow";
+type ArrowPosition = "left" | "right";
+type LinePosition = "top" | "right" | "bottom" | "left";
+type NodeType = "none" | "process" | "decision";
 
-interface FlowStepInput {
-  title: string;
-  owner?: string;
-  note?: string;
-}
+const connectorForm = document.getElementById("connector-form") as HTMLFormElement;
+const nodeForm = document.getElementById("node-form") as HTMLFormElement;
+const arrowPositionInput = document.getElementById("arrowPosition") as HTMLSelectElement;
+const linePositionInput = document.getElementById("linePosition") as HTMLSelectElement;
+const nodeTypeInput = document.getElementById("nodeType") as HTMLSelectElement;
+const nodeTextInput = document.getElementById("nodeText") as HTMLInputElement;
+const closeBtn = document.getElementById("closePlugin") as HTMLButtonElement;
 
-interface CreateFlowPayload {
-  flowName: string;
-  flowType: FlowType;
-  spacing: number;
-  steps: FlowStepInput[];
-}
-
-const form = document.getElementById("flow-form") as HTMLFormElement;
-const stepsInput = document.getElementById("steps") as HTMLTextAreaElement;
-const flowTypeInput = document.getElementById("flowType") as HTMLSelectElement;
-const flowNameInput = document.getElementById("flowName") as HTMLInputElement;
-const spacingInput = document.getElementById("spacing") as HTMLInputElement;
-const connectBtn = document.getElementById("connectSelection") as HTMLButtonElement;
-const tidyBtn = document.getElementById("tidySelection") as HTMLButtonElement;
-const parseHint = document.getElementById("parseHint") as HTMLDivElement;
-
-function parseSteps(raw: string): FlowStepInput[] {
-  return raw
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [title, owner, note] = line.split("|").map((part) => part.trim());
-      return {
-        title: title || "Untitled Step",
-        owner,
-        note
-      };
-    });
-}
-
-function updateHint(): void {
-  const count = parseSteps(stepsInput.value).length;
-  parseHint.textContent = `${count} step${count === 1 ? "" : "s"} will be created`;
-}
-
-form.addEventListener("submit", (event) => {
+connectorForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const steps = parseSteps(stepsInput.value);
-
-  if (steps.length === 0) {
-    parseHint.textContent = "Please provide at least one step.";
-    parseHint.classList.add("error");
-    return;
-  }
-
-  parseHint.classList.remove("error");
-
-  const payload: CreateFlowPayload = {
-    flowName: flowNameInput.value.trim() || "Flow",
-    flowType: flowTypeInput.value as FlowType,
-    spacing: Number(spacingInput.value) || 120,
-    steps
-  };
-
   parent.postMessage(
     {
       pluginMessage: {
-        type: "create-flow",
-        payload
+        type: "generate-connector",
+        payload: {
+          arrowPosition: arrowPositionInput.value as ArrowPosition,
+          linePosition: linePositionInput.value as LinePosition
+        }
       }
     },
     "*"
   );
 });
 
-connectBtn.addEventListener("click", () => {
+nodeForm.addEventListener("submit", (event) => {
+  event.preventDefault();
   parent.postMessage(
     {
       pluginMessage: {
-        type: "connect-selection",
-        payload: { labelPrefix: "Flow Link" }
+        type: "generate-node",
+        payload: {
+          nodeType: nodeTypeInput.value as NodeType,
+          text: nodeTextInput.value.trim() || "Text"
+        }
       }
     },
     "*"
   );
 });
 
-tidyBtn.addEventListener("click", () => {
+closeBtn.addEventListener("click", () => {
   parent.postMessage(
     {
       pluginMessage: {
-        type: "tidy-selection"
+        type: "close-plugin"
       }
     },
     "*"
   );
 });
-
-stepsInput.addEventListener("input", updateHint);
-updateHint();

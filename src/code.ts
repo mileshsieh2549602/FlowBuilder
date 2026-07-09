@@ -1,75 +1,42 @@
-figma.showUI(__html__, { width: 380, height: 560 });
+figma.showUI(__html__, { width: 360, height: 460 });
 
-type FlowType = "wireframe" | "user-flow" | "ui-flow";
+type NodeType = "none" | "process" | "decision";
+type ArrowPosition = "left" | "right";
+type LinePosition = "top" | "right" | "bottom" | "left";
+type Magnet = "TOP" | "RIGHT" | "BOTTOM" | "LEFT";
 
-interface FlowStepInput {
-  title: string;
-  owner?: string;
-  note?: string;
+interface GenerateConnectorPayload {
+  arrowPosition: ArrowPosition;
+  linePosition: LinePosition;
 }
 
-interface CreateFlowPayload {
-  flowName: string;
-  flowType: FlowType;
-  spacing: number;
-  steps: FlowStepInput[];
+interface GenerateNodePayload {
+  nodeType: NodeType;
+  text: string;
 }
 
-interface ConnectSelectionPayload {
-  labelPrefix?: string;
-}
+type PluginRequest =
+  | { type: "generate-connector"; payload: GenerateConnectorPayload }
+  | { type: "generate-node"; payload: GenerateNodePayload }
+  | { type: "close-plugin" };
 
-interface PluginRequest {
-  type: "create-flow" | "connect-selection" | "tidy-selection";
-  payload?: CreateFlowPayload | ConnectSelectionPayload;
-}
-
-interface Theme {
-  frameFill: RGB;
-  frameStroke: RGB;
-  titleColor: RGB;
-  bodyColor: RGB;
-  accentColor: RGB;
-}
-
+const FLOW_NODE_MARK = "flow-builder-node";
+const FLOW_NODE_TYPE = "flow-builder-node-type";
+const FLOW_SPACING = 120;
 const FONT_REGULAR: FontName = { family: "Inter", style: "Regular" };
-const FONT_SEMIBOLD: FontName = { family: "Inter", style: "Semi Bold" };
-
-const THEMES: Record<FlowType, Theme> = {
-  wireframe: {
-    frameFill: { r: 0.972, g: 0.972, b: 0.972 },
-    frameStroke: { r: 0.78, g: 0.78, b: 0.78 },
-    titleColor: { r: 0.2, g: 0.2, b: 0.2 },
-    bodyColor: { r: 0.92, g: 0.92, b: 0.92 },
-    accentColor: { r: 0.45, g: 0.45, b: 0.45 }
-  },
-  "user-flow": {
-    frameFill: { r: 0.94, g: 0.97, b: 1 },
-    frameStroke: { r: 0.57, g: 0.74, b: 1 },
-    titleColor: { r: 0.07, g: 0.22, b: 0.45 },
-    bodyColor: { r: 0.88, g: 0.93, b: 0.99 },
-    accentColor: { r: 0.2, g: 0.46, b: 0.94 }
-  },
-  "ui-flow": {
-    frameFill: { r: 0.95, g: 0.99, b: 0.96 },
-    frameStroke: { r: 0.58, g: 0.84, b: 0.66 },
-    titleColor: { r: 0.11, g: 0.32, b: 0.15 },
-    bodyColor: { r: 0.89, g: 0.97, b: 0.9 },
-    accentColor: { r: 0.17, g: 0.6, b: 0.28 }
-  }
-};
+let autoNodeGuard = false;
 
 figma.ui.onmessage = async (msg: PluginRequest) => {
   try {
     switch (msg.type) {
-      case "create-flow":
-        await createFlow(msg.payload as CreateFlowPayload);
+      case "generate-connector":
+        await generateConnectorFromSelection(msg.payload);
         break;
-      case "connect-selection":
-        await connectSelectedNodes(msg.payload as ConnectSelectionPayload | undefined);
+      case "generate-node":
+        await generateNodeFromSelection(msg.payload);
         break;
-      case "tidy-selection":
-        tidySelection();
+      case "close-plugin":
+        figma.closePlugin();
         break;
       default:
         figma.notify("Unsupported command.");
@@ -80,173 +47,259 @@ figma.ui.onmessage = async (msg: PluginRequest) => {
   }
 };
 
+figma.on("selectionchange", async () => {
+  if (autoNodeGuard) {
+    return;
+  }
+  const selectedConnector = getSingleSelectedConnector();
+  if (!selectedConnector) {
+    return;
+  }
+
+  autoNodeGuard = true;
+  try {
+    await ensureFontsLoaded();
+    await insertNodeOnConnector(selectedConnector, "none", "Text", true);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to create default node.";
+    figma.notify(message, { error: true });
+  } finally {
+    autoNodeGuard = false;
+  }
+});
+
 async function ensureFontsLoaded(): Promise<void> {
-  await Promise.all([figma.loadFontAsync(FONT_REGULAR), figma.loadFontAsync(FONT_SEMIBOLD)]);
+  await figma.loadFontAsync(FONT_REGULAR);
 }
 
-async function createFlow(payload: CreateFlowPayload): Promise<void> {
-  if (!payload || payload.steps.length === 0) {
-    throw new Error("Please add at least one flow step.");
+function isImageNode(node: SceneNode): boolean {
+  if (!("fills" in node)) {
+    return false;
+  }
+  if (node.fills === figma.mixed || !Array.isArray(node.fills)) {
+    return false;
+  }
+  return node.fills.some((fill) => fill.type === "IMAGE");
+}
+
+function isFrameOrImage(node: SceneNode): node is SceneNode & DimensionAndPositionMixin {
+  if (!("x" in node) || !("width" in node)) {
+    return false;
+  }
+  return node.type === "FRAME" || isImageNode(node);
+}
+
+function getMagnetFromLinePosition(position: LinePosition): Magnet {
+  switch (position) {
+    case "top":
+      return "TOP";
+    case "bottom":
+      return "BOTTOM";
+    case "left":
+      return "LEFT";
+    case "right":
+      return "RIGHT";
+    default:
+      return "RIGHT";
+  }
+}
+
+function alignNodesForConnection(
+  first: SceneNode & DimensionAndPositionMixin,
+  second: SceneNode & DimensionAndPositionMixin,
+  linePosition: LinePosition
+): void {
+  if (linePosition === "left" || linePosition === "right") {
+    const firstCenterY = first.y + first.height / 2;
+    second.y = firstCenterY - second.height / 2;
+    second.x = first.x + first.width + FLOW_SPACING;
+    return;
+  }
+  const firstCenterX = first.x + first.width / 2;
+  second.x = firstCenterX - second.width / 2;
+  second.y = first.y + first.height + FLOW_SPACING;
+}
+
+function getArrowCaps(position: ArrowPosition): { start: ConnectorStrokeCap; end: ConnectorStrokeCap } {
+  if (position === "left") {
+    return { start: "ARROW_LINES", end: "NONE" };
+  }
+  return { start: "NONE", end: "ARROW_LINES" };
+}
+
+async function generateConnectorFromSelection(payload: GenerateConnectorPayload): Promise<void> {
+  const selected = figma.currentPage.selection.filter((node) => isFrameOrImage(node));
+  if (selected.length !== 2) {
+    throw new Error("Please select exactly 2 Frame/Image nodes.");
   }
 
+  const ordered = [...selected].sort((a, b) => a.x - b.x || a.y - b.y);
+  const [first, second] = ordered;
+  alignNodesForConnection(first, second, payload.linePosition);
+
+  const magnet = getMagnetFromLinePosition(payload.linePosition);
+  const arrowCaps = getArrowCaps(payload.arrowPosition);
+
+  const connector = figma.createConnector();
+  connector.name = "Flow Connector";
+  connector.connectorStart = { endpointNodeId: first.id, magnet };
+  connector.connectorEnd = { endpointNodeId: second.id, magnet };
+  connector.strokeWeight = 2;
+  connector.cornerRadius = 14;
+  connector.fills = [];
+  connector.strokes = [{ type: "SOLID", color: hexToRgb("#383838") }];
+  connector.connectorStartStrokeCap = arrowCaps.start;
+  connector.connectorEndStrokeCap = arrowCaps.end;
+  figma.currentPage.appendChild(connector);
+
+  figma.currentPage.selection = [connector];
+  figma.viewport.scrollAndZoomIntoView([first, second, connector]);
+  figma.notify("Connector and arrow generated. Click the line to insert a default node.");
+}
+
+async function generateNodeFromSelection(payload: GenerateNodePayload): Promise<void> {
   await ensureFontsLoaded();
-
-  const theme = THEMES[payload.flowType];
-  const flowContainer = figma.createFrame();
-  flowContainer.name = payload.flowName || "Flow";
-  flowContainer.layoutMode = "HORIZONTAL";
-  flowContainer.itemSpacing = Math.max(payload.spacing || 120, 40);
-  flowContainer.counterAxisSizingMode = "AUTO";
-  flowContainer.primaryAxisSizingMode = "AUTO";
-  flowContainer.fills = [];
-  flowContainer.clipsContent = false;
-  flowContainer.strokes = [];
-  flowContainer.paddingLeft = 24;
-  flowContainer.paddingRight = 24;
-  flowContainer.paddingTop = 24;
-  flowContainer.paddingBottom = 24;
-
-  const steps = payload.steps.map((step, index) => createStepNode(step, index + 1, theme));
-  steps.forEach((step) => {
-    flowContainer.appendChild(step);
-  });
-
-  const page = figma.currentPage;
-  page.appendChild(flowContainer);
-  flowContainer.x = figma.viewport.center.x - flowContainer.width / 2;
-  flowContainer.y = figma.viewport.center.y - flowContainer.height / 2;
-
-  const connectors: ConnectorNode[] = [];
-  for (let i = 0; i < steps.length - 1; i += 1) {
-    const connector = figma.createConnector();
-    connector.name = `Flow Link ${i + 1}`;
-    connector.connectorStart = { endpointNodeId: steps[i].id, magnet: "AUTO" };
-    connector.connectorEnd = { endpointNodeId: steps[i + 1].id, magnet: "AUTO" };
-    connector.strokeWeight = 2;
-    connector.strokeCap = "ROUND";
-    connector.cornerRadius = 18;
-    connector.fills = [];
-    connector.strokes = [{ type: "SOLID", color: theme.accentColor }];
-    page.appendChild(connector);
-    connectors.push(connector);
+  const selectedConnector = getSingleSelectedConnector();
+  if (selectedConnector) {
+    await insertNodeOnConnector(selectedConnector, payload.nodeType, payload.text || "Text", false);
+    return;
   }
 
-  page.selection = [flowContainer, ...connectors];
-  figma.viewport.scrollAndZoomIntoView([flowContainer, ...connectors]);
-  figma.notify(`Created "${flowContainer.name}" with ${steps.length} steps.`);
+  if (figma.currentPage.selection.length !== 1) {
+    throw new Error("Select one connector or one flow node.");
+  }
+
+  const selectedNode = figma.currentPage.selection[0];
+  if (selectedNode.type !== "FRAME" || selectedNode.getPluginData(FLOW_NODE_MARK) !== "true") {
+    throw new Error("Selected node is not a plugin-created flow node.");
+  }
+
+  applyNodeStyle(selectedNode, payload.nodeType, payload.text || "Text");
+  figma.notify(`Node updated to ${payload.nodeType}.`);
 }
 
-function createStepNode(step: FlowStepInput, order: number, theme: Theme): FrameNode {
-  const card = figma.createFrame();
-  card.name = `Step ${order} - ${step.title.trim() || "Untitled"}`;
-  card.layoutMode = "VERTICAL";
-  card.primaryAxisSizingMode = "AUTO";
-  card.counterAxisSizingMode = "FIXED";
-  card.resize(280, 220);
-  card.itemSpacing = 10;
-  card.paddingLeft = 16;
-  card.paddingRight = 16;
-  card.paddingTop = 16;
-  card.paddingBottom = 16;
-  card.cornerRadius = 14;
-  card.strokeWeight = 1;
-  card.strokes = [{ type: "SOLID", color: theme.frameStroke }];
-  card.fills = [{ type: "SOLID", color: theme.frameFill }];
-  card.effects = [
-    {
-      type: "DROP_SHADOW",
-      color: { r: 0, g: 0, b: 0, a: 0.08 },
-      offset: { x: 0, y: 2 },
-      radius: 8,
-      spread: 0,
-      visible: true,
-      blendMode: "NORMAL"
-    }
-  ];
-
-  const title = figma.createText();
-  title.fontName = FONT_SEMIBOLD;
-  title.characters = `${order}. ${step.title.trim() || "Untitled Step"}`;
-  title.fontSize = 14;
-  title.lineHeight = { unit: "PIXELS", value: 20 };
-  title.fills = [{ type: "SOLID", color: theme.titleColor }];
-  title.textAutoResize = "HEIGHT";
-  card.appendChild(title);
-
-  const wireframeArea = figma.createFrame();
-  wireframeArea.name = "Wireframe Placeholder";
-  wireframeArea.resize(248, 120);
-  wireframeArea.cornerRadius = 10;
-  wireframeArea.strokeWeight = 1;
-  wireframeArea.strokes = [{ type: "SOLID", color: theme.frameStroke }];
-  wireframeArea.fills = [{ type: "SOLID", color: theme.bodyColor }];
-  wireframeArea.clipsContent = true;
-  card.appendChild(wireframeArea);
-
-  const meta = figma.createText();
-  meta.fontName = FONT_REGULAR;
-  const ownerLabel = step.owner?.trim() ? `Owner: ${step.owner.trim()}` : "Owner: TBD";
-  const noteLabel = step.note?.trim() ? `\nNote: ${step.note.trim()}` : "";
-  meta.characters = `${ownerLabel}${noteLabel}`;
-  meta.fontSize = 11;
-  meta.lineHeight = { unit: "PIXELS", value: 16 };
-  meta.fills = [{ type: "SOLID", color: { r: 0.35, g: 0.35, b: 0.35 } }];
-  meta.textAutoResize = "HEIGHT";
-  card.appendChild(meta);
-
-  return card;
+function getSingleSelectedConnector(): ConnectorNode | null {
+  if (figma.currentPage.selection.length !== 1) {
+    return null;
+  }
+  const node = figma.currentPage.selection[0];
+  return node.type === "CONNECTOR" ? node : null;
 }
 
-async function connectSelectedNodes(payload?: ConnectSelectionPayload): Promise<void> {
-  const selected = figma.currentPage.selection.filter((node): node is FrameNode | ComponentNode => {
-    return node.type === "FRAME" || node.type === "COMPONENT";
-  });
-
-  if (selected.length < 2) {
-    throw new Error("Select at least two frames/components to connect.");
+function getEndpointNode(endpoint: ConnectorEndpoint): (SceneNode & DimensionAndPositionMixin) | null {
+  if (!("endpointNodeId" in endpoint)) {
+    return null;
   }
-
-  const sorted = [...selected].sort((a, b) => a.x - b.x || a.y - b.y);
-  const links: ConnectorNode[] = [];
-
-  for (let i = 0; i < sorted.length - 1; i += 1) {
-    const connector = figma.createConnector();
-    connector.name = payload?.labelPrefix ? `${payload.labelPrefix} ${i + 1}` : `Connection ${i + 1}`;
-    connector.connectorStart = { endpointNodeId: sorted[i].id, magnet: "AUTO" };
-    connector.connectorEnd = { endpointNodeId: sorted[i + 1].id, magnet: "AUTO" };
-    connector.strokeWeight = 2;
-    connector.cornerRadius = 14;
-    connector.fills = [];
-    connector.strokes = [{ type: "SOLID", color: { r: 0.35, g: 0.55, b: 0.92 } }];
-    figma.currentPage.appendChild(connector);
-    links.push(connector);
+  const node = figma.getNodeById(endpoint.endpointNodeId);
+  if (!node || !("x" in node) || !("width" in node)) {
+    return null;
   }
-
-  figma.currentPage.selection = links;
-  figma.viewport.scrollAndZoomIntoView(links);
-  figma.notify(`Connected ${sorted.length} nodes.`);
+  return node as SceneNode & DimensionAndPositionMixin;
 }
 
-function tidySelection(): void {
-  const selected = figma.currentPage.selection.filter((node): node is FrameNode | ComponentNode => {
-    return node.type === "FRAME" || node.type === "COMPONENT";
-  });
-
-  if (selected.length < 2) {
-    throw new Error("Select at least two frames/components to tidy.");
+async function insertNodeOnConnector(
+  connector: ConnectorNode,
+  nodeType: NodeType,
+  text: string,
+  isDefaultNode: boolean
+): Promise<void> {
+  const startNode = getEndpointNode(connector.connectorStart);
+  const endNode = getEndpointNode(connector.connectorEnd);
+  if (!startNode || !endNode) {
+    throw new Error("Connector must be attached to two nodes.");
   }
 
-  const sorted = [...selected].sort((a, b) => a.x - b.x || a.y - b.y);
-  const first = sorted[0];
-  const averageY = sorted.reduce((acc, item) => acc + item.y, 0) / sorted.length;
-  const spacing = 140;
+  const centerX = (startNode.x + startNode.width / 2 + (endNode.x + endNode.width / 2)) / 2;
+  const centerY = (startNode.y + startNode.height / 2 + (endNode.y + endNode.height / 2)) / 2;
 
-  sorted.forEach((node, index) => {
-    node.x = first.x + index * (node.width + spacing);
-    node.y = averageY;
-  });
+  const flowNode = figma.createFrame();
+  flowNode.name = "Flow Node";
+  applyNodeStyle(flowNode, nodeType, text);
+  flowNode.x = centerX - flowNode.width / 2;
+  flowNode.y = centerY - flowNode.height / 2;
+  figma.currentPage.appendChild(flowNode);
 
-  figma.currentPage.selection = sorted;
-  figma.viewport.scrollAndZoomIntoView(sorted);
-  figma.notify("Aligned selected nodes into a clean horizontal flow.");
+  const incoming = figma.createConnector();
+  incoming.name = "Flow Connector";
+  incoming.connectorStart = connector.connectorStart;
+  incoming.connectorEnd = { endpointNodeId: flowNode.id, magnet: "LEFT" };
+  incoming.strokeWeight = connector.strokeWeight;
+  incoming.cornerRadius = connector.cornerRadius;
+  incoming.fills = [];
+  incoming.strokes = connector.strokes;
+  incoming.connectorStartStrokeCap = connector.connectorStartStrokeCap;
+  incoming.connectorEndStrokeCap = "NONE";
+  figma.currentPage.appendChild(incoming);
+
+  const outgoing = figma.createConnector();
+  outgoing.name = "Flow Connector";
+  outgoing.connectorStart = { endpointNodeId: flowNode.id, magnet: "RIGHT" };
+  outgoing.connectorEnd = connector.connectorEnd;
+  outgoing.strokeWeight = connector.strokeWeight;
+  outgoing.cornerRadius = connector.cornerRadius;
+  outgoing.fills = [];
+  outgoing.strokes = connector.strokes;
+  outgoing.connectorStartStrokeCap = "NONE";
+  outgoing.connectorEndStrokeCap = connector.connectorEndStrokeCap;
+  figma.currentPage.appendChild(outgoing);
+
+  connector.remove();
+  figma.currentPage.selection = [flowNode];
+  figma.viewport.scrollAndZoomIntoView([flowNode, incoming, outgoing]);
+  figma.notify(isDefaultNode ? "Generated default None node." : `Generated ${nodeType} node.`);
+}
+
+function applyNodeStyle(node: FrameNode, nodeType: NodeType, textValue: string): void {
+  node.setPluginData(FLOW_NODE_MARK, "true");
+  node.setPluginData(FLOW_NODE_TYPE, nodeType);
+  node.strokes = [{ type: "SOLID", color: hexToRgb("#383838") }];
+  node.strokeWeight = 1.5;
+  node.fills = [{ type: "SOLID", color: hexToRgb("#FCFCFC") }];
+
+  const label = getOrCreateLabel(node);
+  label.characters = textValue || "Text";
+  label.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
+
+  if (nodeType === "decision") {
+    node.resize(96, 96);
+    node.cornerRadius = 0;
+    node.rotation = 45;
+    label.rotation = -45;
+    label.fontSize = 12;
+  } else {
+    node.resize(132, 52);
+    node.rotation = 0;
+    label.rotation = 0;
+    label.fontSize = 12;
+    node.cornerRadius = nodeType === "none" ? 10 : 0;
+  }
+  label.x = node.width / 2 - label.width / 2;
+  label.y = node.height / 2 - label.height / 2;
+  node.name = `${capitalize(nodeType)} Node`;
+}
+
+function getOrCreateLabel(node: FrameNode): TextNode {
+  const firstText = node.findChild((child): child is TextNode => child.type === "TEXT");
+  if (firstText) {
+    return firstText;
+  }
+  const label = figma.createText();
+  label.fontName = FONT_REGULAR;
+  label.textAutoResize = "WIDTH_AND_HEIGHT";
+  node.appendChild(label);
+  return label;
+}
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function hexToRgb(hex: string): RGB {
+  const cleanHex = hex.replace("#", "");
+  const parsed = parseInt(cleanHex, 16);
+  return {
+    r: ((parsed >> 16) & 255) / 255,
+    g: ((parsed >> 8) & 255) / 255,
+    b: (parsed & 255) / 255
+  };
 }
