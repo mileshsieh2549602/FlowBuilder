@@ -1,0 +1,17 @@
+{
+  "name": "flow-builder-figma-plugin",
+  "version": "1.0.0",
+  "description": "Figma plugin for accelerating wireframe, user flow, and UI flow mapping.",
+  "private": true,
+  "scripts": {
+    "build": "npm run build:code && npm run build:ui",
+    "build:code": "esbuild src/code.ts --bundle --format=iife --target=es2018 --outfile=dist/code.js",
+    "build:ui": "esbuild src/ui.ts --bundle --target=es2018 --outfile=dist/ui.js",
+    "dev": "npm run build"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.117.0",
+    "esbuild": "^0.25.9",
+    "typescript": "^5.9.2"
+  }
+}

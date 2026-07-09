@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Flow Builder for Figma</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        padding: 14px;
+        background: #f8f8fb;
+        color: #1f1f26;
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: 16px;
+        line-height: 22px;
+      }
+
+      .subhead {
+        margin: 0 0 12px;
+        color: #666b7a;
+        font-size: 12px;
+      }
+
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      label {
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      input,
+      select,
+      textarea,
+      button {
+        font: inherit;
+      }
+
+      input,
+      select,
+      textarea {
+        box-sizing: border-box;
+        width: 100%;
+        margin-top: 6px;
+        border: 1px solid #d0d4df;
+        border-radius: 8px;
+        background: #fff;
+        color: #1f1f26;
+      }
+
+      input,
+      select {
+        height: 34px;
+        padding: 0 10px;
+      }
+
+      textarea {
+        min-height: 140px;
+        padding: 10px;
+        resize: vertical;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .hint {
+        margin: -4px 0 2px;
+        color: #4a5568;
+        font-size: 11px;
+      }
+
+      .hint.error {
+        color: #b42318;
+      }
+
+      button {
+        border: none;
+        border-radius: 8px;
+        padding: 10px 12px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      .primary {
+        background: #1865f2;
+        color: #fff;
+      }
+
+      .secondary {
+        background: #edf2ff;
+        color: #244282;
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .footnote {
+        margin-top: 10px;
+        color: #626c80;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Flow Builder</h1>
+    <p class="subhead">Generate Wireframe/User/UI flow maps in seconds.</p>
+
+    <form id="flow-form">
+      <label>
+        Flow Name
+        <input id="flowName" type="text" value="Checkout Flow" />
+      </label>
+
+      <div class="grid">
+        <label>
+          Flow Type
+          <select id="flowType">
+            <option value="wireframe">Wireframe Flow</option>
+            <option value="user-flow">User Flow</option>
+            <option value="ui-flow">UI Flow</option>
+          </select>
+        </label>
+        <label>
+          Spacing
+          <input id="spacing" type="number" min="40" max="300" value="120" />
+        </label>
+      </div>
+
+      <label>
+        Steps (one per line, format: title | owner | note)
+        <textarea id="steps">
+Entry Screen | Product | User lands on primary screen
+Choose Plan | Growth | Select tier and billing cycle
+Payment | Billing | Enter card and confirm
+Success | Product | Confirmation and next action
+        </textarea>
+      </label>
+      <div id="parseHint" class="hint"></div>
+
+      <button class="primary" type="submit">Create Flow</button>
+
+      <div class="actions">
+        <button id="connectSelection" class="secondary" type="button">Connect Selection</button>
+        <button id="tidySelection" class="secondary" type="button">Tidy Selection</button>
+      </div>
+    </form>
+
+    <p class="footnote">
+      Tip: create flow with the form, then move cards freely. Connectors stay attached to steps.
+    </p>
+
+    <script src="../dist/ui.js"></script>
+  </body>
+</html>
