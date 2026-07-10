@@ -1,14 +1,6 @@
 figma.showUI(__html__, { width: 360, height: 460 });
 
 type NodeType = "none" | "process" | "decision";
-type ArrowPosition = "left" | "right";
-type LinePosition = "top" | "right" | "bottom" | "left";
-type Magnet = "TOP" | "RIGHT" | "BOTTOM" | "LEFT";
-
-interface GenerateConnectorPayload {
-  arrowPosition: ArrowPosition;
-  linePosition: LinePosition;
-}
 
 interface GenerateNodePayload {
   nodeType: NodeType;
@@ -16,9 +8,13 @@ interface GenerateNodePayload {
 }
 
 type PluginRequest =
-  | { type: "generate-connector"; payload: GenerateConnectorPayload }
+  | { type: "generate-connector" }
   | { type: "generate-node"; payload: GenerateNodePayload }
   | { type: "close-plugin" };
+
+type SelectedLink =
+  | { kind: "connector"; connector: ConnectorNode }
+  | { kind: "shape"; shape: GroupNode };
 
 const FLOW_NODE_MARK = "flow-builder-node";
 const FLOW_NODE_TYPE = "flow-builder-node-type";
@@ -33,7 +29,7 @@ figma.ui.onmessage = async (msg: PluginRequest) => {
   try {
     switch (msg.type) {
       case "generate-connector":
-        await generateConnectorFromSelection(msg.payload);
+        await generateConnectorFromSelection();
         sendStatus("connector", "success", "Successful");
         break;
       case "generate-node":
@@ -61,15 +57,15 @@ figma.on("selectionchange", async () => {
   if (autoNodeGuard) {
     return;
   }
-  const selectedConnector = getSingleSelectedConnector();
-  if (!selectedConnector) {
+  const selectedLink = getSingleSelectedLink();
+  if (!selectedLink) {
     return;
   }
 
   autoNodeGuard = true;
   try {
     await ensureFontsLoaded();
-    await insertNodeOnConnector(selectedConnector, "none", "Text", true);
+    await insertNodeOnSelectedLink(selectedLink, "none", "Text", true);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to create default node.";
     figma.notify(message, { error: true });
@@ -99,60 +95,16 @@ function isFrameOrImage(node: SceneNode): node is SceneNode & DimensionAndPositi
   return node.type === "FRAME" || isImageNode(node);
 }
 
-function getMagnetFromLinePosition(position: LinePosition): Magnet {
-  switch (position) {
-    case "top":
-      return "TOP";
-    case "bottom":
-      return "BOTTOM";
-    case "left":
-      return "LEFT";
-    case "right":
-      return "RIGHT";
-    default:
-      return "RIGHT";
-  }
-}
-
-function getConnectorMagnets(position: LinePosition): { start: Magnet; end: Magnet } {
-  switch (position) {
-    case "right":
-      return { start: "RIGHT", end: "LEFT" };
-    case "left":
-      return { start: "LEFT", end: "RIGHT" };
-    case "top":
-      return { start: "TOP", end: "BOTTOM" };
-    case "bottom":
-      return { start: "BOTTOM", end: "TOP" };
-    default:
-      return { start: "RIGHT", end: "LEFT" };
-  }
-}
-
-function alignNodesForConnection(
+function alignNodesForRightFlow(
   first: SceneNode & DimensionAndPositionMixin,
-  second: SceneNode & DimensionAndPositionMixin,
-  linePosition: LinePosition
+  second: SceneNode & DimensionAndPositionMixin
 ): void {
-  if (linePosition === "left" || linePosition === "right") {
-    const firstCenterY = first.y + first.height / 2;
-    second.y = firstCenterY - second.height / 2;
-    second.x = first.x + first.width + FLOW_SPACING;
-    return;
-  }
-  const firstCenterX = first.x + first.width / 2;
-  second.x = firstCenterX - second.width / 2;
-  second.y = first.y + first.height + FLOW_SPACING;
+  const firstCenterY = first.y + first.height / 2;
+  second.y = firstCenterY - second.height / 2;
+  second.x = first.x + first.width + FLOW_SPACING;
 }
 
-function getArrowCaps(position: ArrowPosition): { start: ConnectorStrokeCap; end: ConnectorStrokeCap } {
-  if (position === "left") {
-    return { start: "ARROW_LINES", end: "NONE" };
-  }
-  return { start: "NONE", end: "ARROW_LINES" };
-}
-
-async function generateConnectorFromSelection(payload: GenerateConnectorPayload): Promise<void> {
+async function generateConnectorFromSelection(): Promise<void> {
   const selected = figma.currentPage.selection.filter((node) => isFrameOrImage(node));
   if (selected.length !== 2) {
     throw new Error("Please select exactly 2 Frame/Image nodes.");
@@ -160,38 +112,32 @@ async function generateConnectorFromSelection(payload: GenerateConnectorPayload)
 
   const ordered = [...selected].sort((a, b) => a.x - b.x || a.y - b.y);
   const [first, second] = ordered;
-  alignNodesForConnection(first, second, payload.linePosition);
+  alignNodesForRightFlow(first, second);
 
-  const magnet = getMagnetFromLinePosition(payload.linePosition);
-  const connectorMagnets = getConnectorMagnets(payload.linePosition);
-  const arrowCaps = getArrowCaps(payload.arrowPosition);
-
-  const linkNode = createLinkBetweenNodes(first, second, connectorMagnets.start, connectorMagnets.end, arrowCaps);
+  const linkNode = createLinkBetweenNodes(first, second, true);
   figma.currentPage.selection = [linkNode];
   figma.viewport.scrollAndZoomIntoView([first, second, linkNode]);
-  figma.notify(`Connector generated (${capitalize(magnet.toLowerCase())} side). Click the line to insert a default node.`);
+  figma.notify("Connector generated (right direction). Click the line to insert a default node.");
 }
 
 function createLinkBetweenNodes(
   first: SceneNode & DimensionAndPositionMixin,
   second: SceneNode & DimensionAndPositionMixin,
-  startMagnet: Magnet,
-  endMagnet: Magnet,
-  arrowCaps: { start: ConnectorStrokeCap; end: ConnectorStrokeCap }
+  selectableLink: boolean
 ): SceneNode {
   const canCreateConnector = typeof figma.createConnector === "function";
   if (canCreateConnector) {
     try {
       const connector = figma.createConnector();
       connector.name = "Flow Connector";
-      connector.connectorStart = { endpointNodeId: first.id, magnet: startMagnet };
-      connector.connectorEnd = { endpointNodeId: second.id, magnet: endMagnet };
+      connector.connectorStart = { endpointNodeId: first.id, magnet: "RIGHT" };
+      connector.connectorEnd = { endpointNodeId: second.id, magnet: "LEFT" };
       connector.strokeWeight = 3;
       connector.cornerRadius = 14;
       connector.fills = [];
       connector.strokes = [{ type: "SOLID", color: hexToRgb("#383838") }];
-      connector.connectorStartStrokeCap = arrowCaps.start;
-      connector.connectorEndStrokeCap = arrowCaps.end;
+      connector.connectorStartStrokeCap = "NONE";
+      connector.connectorEndStrokeCap = "ARROW_LINES";
       figma.currentPage.appendChild(connector);
       return connector;
     } catch (error) {
@@ -199,79 +145,69 @@ function createLinkBetweenNodes(
       figma.notify(`Connector API unavailable, switched to shape line. ${message}`);
     }
   }
-  return createFallbackShapeLink(first, second, startMagnet, endMagnet, arrowCaps);
+  return createFallbackShapeLink(first, second, selectableLink, true);
 }
 
 function createFallbackShapeLink(
   first: SceneNode & DimensionAndPositionMixin,
   second: SceneNode & DimensionAndPositionMixin,
-  startMagnet: Magnet,
-  endMagnet: Magnet,
-  arrowCaps: { start: ConnectorStrokeCap; end: ConnectorStrokeCap }
-): SceneNode {
-  const startPoint = getAttachPoint(first, startMagnet);
-  const endPoint = getAttachPoint(second, endMagnet);
-  const dx = endPoint.x - startPoint.x;
-  const dy = endPoint.y - startPoint.y;
-  const length = Math.max(Math.sqrt(dx * dx + dy * dy), 2);
-  const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+  selectableLink: boolean,
+  arrowAtEnd: boolean
+): GroupNode {
+  const startPoint = getAttachPoint(first, "RIGHT");
+  const endPoint = getAttachPoint(second, "LEFT");
+  const arrowWidth = arrowAtEnd ? 10 : 0;
+  const lineWidth = Math.max(endPoint.x - startPoint.x - arrowWidth, 2);
+  const lineY = startPoint.y - 1.5;
 
   const line = figma.createRectangle();
-  line.name = "Flow Connector (Shape)";
-  line.resize(length, 3);
+  line.name = "Flow Link Segment";
+  line.resize(lineWidth, 3);
   line.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
   line.strokes = [];
-  line.x = (startPoint.x + endPoint.x) / 2 - length / 2;
-  line.y = (startPoint.y + endPoint.y) / 2 - 1.5;
-  line.rotation = angle;
-  line.setPluginData(FLOW_LINK_MARK, "true");
-  line.setPluginData(FLOW_LINK_START_NODE, first.id);
-  line.setPluginData(FLOW_LINK_END_NODE, second.id);
+  line.x = startPoint.x;
+  line.y = lineY;
   figma.currentPage.appendChild(line);
 
-  const hasArrowAtEnd = arrowCaps.end !== "NONE";
-  const hasArrowAtStart = arrowCaps.start !== "NONE";
-  if (hasArrowAtEnd || hasArrowAtStart) {
-    const arrowNode = figma.createPolygon();
-    arrowNode.name = "Flow Arrow (Shape)";
-    arrowNode.pointCount = 3;
-    arrowNode.resize(10, 10);
+  const nodesToGroup: SceneNode[] = [line];
+  if (arrowAtEnd) {
+    const arrowNode = figma.createVector();
+    arrowNode.name = "Flow Arrow";
+    arrowNode.vectorPaths = [{ windingRule: "NONZERO", data: "M 0 0 L 10 5 L 0 10 Z" }];
     arrowNode.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
     arrowNode.strokes = [];
-    if (hasArrowAtEnd) {
-      arrowNode.x = endPoint.x - 5;
-      arrowNode.y = endPoint.y - 5;
-      arrowNode.rotation = angle + 90;
-    } else {
-      arrowNode.x = startPoint.x - 5;
-      arrowNode.y = startPoint.y - 5;
-      arrowNode.rotation = angle - 90;
-    }
+    arrowNode.resize(10, 10);
+    arrowNode.x = startPoint.x + lineWidth;
+    arrowNode.y = startPoint.y - 5;
     figma.currentPage.appendChild(arrowNode);
+    nodesToGroup.push(arrowNode);
   }
-  return line;
+
+  const group = figma.group(nodesToGroup, figma.currentPage);
+  group.name = "Flow Connector (Shape)";
+  if (selectableLink) {
+    group.setPluginData(FLOW_LINK_MARK, "true");
+    group.setPluginData(FLOW_LINK_START_NODE, first.id);
+    group.setPluginData(FLOW_LINK_END_NODE, second.id);
+  }
+  return group;
 }
 
-function getAttachPoint(node: SceneNode & DimensionAndPositionMixin, magnet: Magnet): { x: number; y: number } {
-  switch (magnet) {
-    case "TOP":
-      return { x: node.x + node.width / 2, y: node.y };
-    case "BOTTOM":
-      return { x: node.x + node.width / 2, y: node.y + node.height };
-    case "LEFT":
-      return { x: node.x, y: node.y + node.height / 2 };
-    case "RIGHT":
-      return { x: node.x + node.width, y: node.y + node.height / 2 };
-    default:
-      return { x: node.x + node.width / 2, y: node.y + node.height / 2 };
+function getAttachPoint(
+  node: SceneNode & DimensionAndPositionMixin,
+  magnet: "LEFT" | "RIGHT"
+): { x: number; y: number } {
+  if (magnet === "LEFT") {
+    return { x: node.x, y: node.y + node.height / 2 };
   }
+  return { x: node.x + node.width, y: node.y + node.height / 2 };
 }
 
 async function generateNodeFromSelection(payload: GenerateNodePayload): Promise<void> {
   await ensureFontsLoaded();
-  const selectedConnector = getSingleSelectedConnector();
-  if (selectedConnector) {
-    await insertNodeOnConnector(selectedConnector, payload.nodeType, payload.text || "Text", false);
+  const selectedLink = getSingleSelectedLink();
+  if (selectedLink) {
+    await insertNodeOnSelectedLink(selectedLink, payload.nodeType, payload.text || "Text", false);
     return;
   }
 
@@ -288,12 +224,18 @@ async function generateNodeFromSelection(payload: GenerateNodePayload): Promise<
   figma.notify(`Node updated to ${payload.nodeType}.`);
 }
 
-function getSingleSelectedConnector(): ConnectorNode | null {
+function getSingleSelectedLink(): SelectedLink | null {
   if (figma.currentPage.selection.length !== 1) {
     return null;
   }
   const node = figma.currentPage.selection[0];
-  return node.type === "CONNECTOR" ? node : null;
+  if (node.type === "CONNECTOR") {
+    return { kind: "connector", connector: node };
+  }
+  if (node.type === "GROUP" && node.getPluginData(FLOW_LINK_MARK) === "true") {
+    return { kind: "shape", shape: node };
+  }
+  return null;
 }
 
 function getEndpointNode(endpoint: ConnectorEndpoint): (SceneNode & DimensionAndPositionMixin) | null {
@@ -305,6 +247,19 @@ function getEndpointNode(endpoint: ConnectorEndpoint): (SceneNode & DimensionAnd
     return null;
   }
   return node as SceneNode & DimensionAndPositionMixin;
+}
+
+async function insertNodeOnSelectedLink(
+  selectedLink: SelectedLink,
+  nodeType: NodeType,
+  text: string,
+  isDefaultNode: boolean
+): Promise<void> {
+  if (selectedLink.kind === "connector") {
+    await insertNodeOnConnector(selectedLink.connector, nodeType, text, isDefaultNode);
+    return;
+  }
+  await insertNodeOnShapeLink(selectedLink.shape, nodeType, text, isDefaultNode);
 }
 
 async function insertNodeOnConnector(
@@ -356,6 +311,41 @@ async function insertNodeOnConnector(
   connector.remove();
   figma.currentPage.selection = [flowNode];
   figma.viewport.scrollAndZoomIntoView([flowNode, incoming, outgoing]);
+  figma.notify(isDefaultNode ? "Generated default None node." : `Generated ${nodeType} node.`);
+}
+
+async function insertNodeOnShapeLink(
+  shapeLink: GroupNode,
+  nodeType: NodeType,
+  text: string,
+  isDefaultNode: boolean
+): Promise<void> {
+  const startNodeId = shapeLink.getPluginData(FLOW_LINK_START_NODE);
+  const endNodeId = shapeLink.getPluginData(FLOW_LINK_END_NODE);
+  const startNode = figma.getNodeById(startNodeId);
+  const endNode = figma.getNodeById(endNodeId);
+  if (!startNode || !endNode || !("x" in startNode) || !("x" in endNode)) {
+    throw new Error("Shape link is missing endpoint nodes.");
+  }
+
+  const startDim = startNode as SceneNode & DimensionAndPositionMixin;
+  const endDim = endNode as SceneNode & DimensionAndPositionMixin;
+  const centerX = (startDim.x + startDim.width / 2 + (endDim.x + endDim.width / 2)) / 2;
+  const centerY = (startDim.y + startDim.height / 2 + (endDim.y + endDim.height / 2)) / 2;
+
+  const flowNode = figma.createFrame();
+  flowNode.name = "Flow Node";
+  applyNodeStyle(flowNode, nodeType, text);
+  flowNode.x = centerX - flowNode.width / 2;
+  flowNode.y = centerY - flowNode.height / 2;
+  figma.currentPage.appendChild(flowNode);
+
+  createFallbackShapeLink(startDim, flowNode, false, false);
+  createFallbackShapeLink(flowNode, endDim, false, true);
+  shapeLink.remove();
+
+  figma.currentPage.selection = [flowNode];
+  figma.viewport.scrollAndZoomIntoView([flowNode]);
   figma.notify(isDefaultNode ? "Generated default None node." : `Generated ${nodeType} node.`);
 }
 
