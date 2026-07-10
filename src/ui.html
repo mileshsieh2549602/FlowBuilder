@@ -26,7 +26,6 @@
       .header {
         display: flex;
         align-items: center;
-        justify-content: space-between;
         margin-bottom: 8px;
       }
 
@@ -35,17 +34,6 @@
         font-size: 15px;
         line-height: 20px;
         color: #383838;
-      }
-
-      .close {
-        width: 28px;
-        height: 28px;
-        padding: 0;
-        border-radius: 8px;
-        border: 1px solid #383838;
-        background: #ffffff;
-        color: #383838;
-        cursor: pointer;
       }
 
       .description {
@@ -154,56 +142,27 @@
         margin-bottom: 2px;
       }
 
-      .pill {
-        display: inline-block;
-        margin-top: 6px;
-        padding: 3px 8px;
-        border-radius: 8px;
-        border: 1px solid #e1e1e1;
-        font-size: 11px;
-        color: #6e6e6e;
-      }
     </style>
   </head>
   <body>
     <div class="window">
       <div class="header">
         <h1>Flow Builder</h1>
-        <button id="closePlugin" class="close" type="button">×</button>
       </div>
-      <p class="description">Select 2 Frame/Image nodes, then generate connector and node.</p>
+      <p class="description">Select 2 Frame/Image nodes, then generate a connector.</p>
 
       <form id="connector-form">
         <button class="primary" type="submit">Generate Connector</button>
         <div id="connectorStatus" class="status"></div>
       </form>
 
-      <form id="node-form" class="section">
-        <label>
-          Node Type
-          <select id="nodeType">
-            <option value="none">None</option>
-            <option value="process">Process</option>
-            <option value="decision">Decision</option>
-          </select>
-        </label>
-        <label>
-          Node Text
-          <input id="nodeText" value="Text" />
-        </label>
-        <button class="secondary" type="submit">Generate / Update Node</button>
-        <div id="nodeStatus" class="status"></div>
-        <span class="pill">Default node: None</span>
-      </form>
-
       <div class="section">
         <ol class="instruction">
           <li>Select 2 Frame or Image nodes.</li>
           <li>Click "Generate Connector".</li>
-          <li>Click the generated line to auto-create None node.</li>
-          <li>Choose Node Type then click "Generate / Update Node".</li>
+          <li>Connector line and arrow are generated to match frame endpoints.</li>
         </ol>
-        <p class="caption">Spacing between two selected nodes is auto-fixed to 120px.</p>
+        <p class="caption">Frame spacing and alignment are fully controlled by user.</p>
       </div>
     </div>
 
