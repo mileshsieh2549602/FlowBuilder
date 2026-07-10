@@ -2,6 +2,10 @@ figma.showUI(__html__, { width: 360, height: 300 });
 
 type PluginRequest = { type: "generate-connector" };
 type HorizontalMagnet = "LEFT" | "RIGHT";
+type FrameLikeNode = SceneNode & DimensionAndPositionMixin;
+
+let previousFrameSelection = new Set<string>();
+let frameSelectionOrder: string[] = [];
 
 figma.ui.onmessage = async (msg: PluginRequest) => {
   try {
@@ -17,6 +21,10 @@ figma.ui.onmessage = async (msg: PluginRequest) => {
   }
 };
 
+figma.on("selectionchange", () => {
+  updateSelectionOrder();
+});
+
 function isImageNode(node: SceneNode): boolean {
   if (!("fills" in node)) {
     return false;
@@ -27,7 +35,7 @@ function isImageNode(node: SceneNode): boolean {
   return node.fills.some((fill) => fill.type === "IMAGE");
 }
 
-function isFrameOrImage(node: SceneNode): node is SceneNode & DimensionAndPositionMixin {
+function isFrameOrImage(node: SceneNode): node is FrameLikeNode {
   if (!("x" in node) || !("width" in node)) {
     return false;
   }
@@ -50,12 +58,42 @@ async function generateConnectorFromSelection(): Promise<void> {
     throw new Error("Please select exactly 2 Frame/Image nodes.");
   }
 
-  const [sourceNode, targetNode] = selected;
+  updateSelectionOrder();
+  const orderedSelection = resolveSelectionByOrder(selected);
+  const [sourceNode, targetNode] = orderedSelection;
   const direction: HorizontalMagnet = targetNode.x >= sourceNode.x ? "RIGHT" : "LEFT";
 
   const linkNode = createLinkBetweenNodes(sourceNode, targetNode, direction);
   figma.currentPage.selection = [sourceNode, targetNode, linkNode];
   figma.notify(`Connector generated (${direction === "RIGHT" ? "rightward" : "leftward"}).`);
+}
+
+function resolveSelectionByOrder(selected: FrameLikeNode[]): [FrameLikeNode, FrameLikeNode] {
+  if (selected.length !== 2) {
+    throw new Error("Selection must contain exactly two nodes.");
+  }
+  const [a, b] = selected;
+  const indexA = frameSelectionOrder.indexOf(a.id);
+  const indexB = frameSelectionOrder.indexOf(b.id);
+  if (indexA === -1 || indexB === -1 || indexA === indexB) {
+    return [a, b];
+  }
+  return indexA < indexB ? [a, b] : [b, a];
+}
+
+function updateSelectionOrder(): void {
+  const currentIds = figma.currentPage.selection.filter((node) => isFrameOrImage(node)).map((node) => node.id);
+  const currentSet = new Set(currentIds);
+
+  frameSelectionOrder = frameSelectionOrder.filter((id) => currentSet.has(id));
+
+  currentIds.forEach((id) => {
+    if (!previousFrameSelection.has(id) || !frameSelectionOrder.includes(id)) {
+      frameSelectionOrder.push(id);
+    }
+  });
+
+  previousFrameSelection = currentSet;
 }
 
 function createLinkBetweenNodes(
@@ -147,13 +185,18 @@ function createFallbackShapeLink(
 
   const arrow = figma.createVector();
   arrow.name = "Flow Arrow";
-  arrow.vectorPaths = [{ windingRule: "NONZERO", data: "M 0 0 L 10 5 L 0 10 Z" }];
+  arrow.vectorPaths = [
+    {
+      windingRule: "NONZERO",
+      data: direction === "RIGHT" ? "M 0 0 L 10 5 L 0 10 Z" : "M 10 0 L 0 5 L 10 10 Z"
+    }
+  ];
   arrow.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
   arrow.strokes = [];
   arrow.resize(10, 10);
   arrow.x = direction === "RIGHT" ? endPoint.x - arrowLength : endPoint.x;
   arrow.y = endPoint.y - 5;
-  arrow.rotation = direction === "RIGHT" ? 0 : 180;
+  arrow.rotation = 0;
   figma.currentPage.appendChild(arrow);
   nodes.push(arrow);
 
