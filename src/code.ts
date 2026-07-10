@@ -67,6 +67,7 @@ function createLinkBetweenNodes(
       connector.name = "Flow Connector";
       connector.connectorStart = { endpointNodeId: first.id, magnet: "RIGHT" };
       connector.connectorEnd = { endpointNodeId: second.id, magnet: "LEFT" };
+      connector.connectorLineType = "ELBOWED";
       connector.strokeWeight = 3;
       connector.cornerRadius = 14;
       connector.fills = [];
@@ -89,42 +90,58 @@ function createFallbackShapeLink(
 ): GroupNode {
   const startPoint = getAttachPoint(first, "RIGHT");
   const endPoint = getAttachPoint(second, "LEFT");
-  const dx = endPoint.x - startPoint.x;
-  const dy = endPoint.y - startPoint.y;
-  const fullLength = Math.max(Math.sqrt(dx * dx + dy * dy), 2);
-  const ux = dx / fullLength;
-  const uy = dy / fullLength;
-  const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-
   const arrowLength = 10;
-  const lineLength = Math.max(fullLength - arrowLength, 2);
-  const lineCenterX = startPoint.x + ux * (lineLength / 2);
-  const lineCenterY = startPoint.y + uy * (lineLength / 2);
+  const stroke = 3;
+  const finalX = Math.max(startPoint.x + 2, endPoint.x - arrowLength);
+  const midX = startPoint.x + (finalX - startPoint.x) / 2;
 
-  const line = figma.createRectangle();
-  line.name = "Flow Link Segment";
-  line.resize(lineLength, 3);
-  line.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
-  line.strokes = [];
-  line.x = lineCenterX - lineLength / 2;
-  line.y = lineCenterY - 1.5;
-  line.rotation = angle;
-  figma.currentPage.appendChild(line);
+  const nodes: SceneNode[] = [];
 
-  const arrowCenterX = endPoint.x - ux * (arrowLength / 2);
-  const arrowCenterY = endPoint.y - uy * (arrowLength / 2);
+  const segment1 = figma.createRectangle();
+  segment1.name = "Flow Link Segment";
+  segment1.resize(Math.max(midX - startPoint.x, 2), stroke);
+  segment1.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
+  segment1.strokes = [];
+  segment1.x = startPoint.x;
+  segment1.y = startPoint.y - stroke / 2;
+  figma.currentPage.appendChild(segment1);
+  nodes.push(segment1);
+
+  if (Math.abs(endPoint.y - startPoint.y) >= 1) {
+    const segment2 = figma.createRectangle();
+    segment2.name = "Flow Link Segment";
+    segment2.resize(stroke, Math.abs(endPoint.y - startPoint.y));
+    segment2.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
+    segment2.strokes = [];
+    segment2.x = midX - stroke / 2;
+    segment2.y = Math.min(startPoint.y, endPoint.y);
+    figma.currentPage.appendChild(segment2);
+    nodes.push(segment2);
+  }
+
+  const segment3 = figma.createRectangle();
+  segment3.name = "Flow Link Segment";
+  segment3.resize(Math.max(finalX - midX, 2), stroke);
+  segment3.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
+  segment3.strokes = [];
+  segment3.x = midX;
+  segment3.y = endPoint.y - stroke / 2;
+  figma.currentPage.appendChild(segment3);
+  nodes.push(segment3);
+
   const arrow = figma.createVector();
   arrow.name = "Flow Arrow";
   arrow.vectorPaths = [{ windingRule: "NONZERO", data: "M 0 0 L 10 5 L 0 10 Z" }];
   arrow.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
   arrow.strokes = [];
   arrow.resize(10, 10);
-  arrow.x = arrowCenterX - 5;
-  arrow.y = arrowCenterY - 5;
-  arrow.rotation = angle;
+  arrow.x = endPoint.x - arrowLength;
+  arrow.y = endPoint.y - 5;
+  arrow.rotation = 0;
   figma.currentPage.appendChild(arrow);
+  nodes.push(arrow);
 
-  const group = figma.group([line, arrow], figma.currentPage);
+  const group = figma.group(nodes, figma.currentPage);
   group.name = "Flow Connector (Shape)";
   return group;
 }
