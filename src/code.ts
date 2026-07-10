@@ -238,11 +238,11 @@ function getSingleSelectedLink(): SelectedLink | null {
   return null;
 }
 
-function getEndpointNode(endpoint: ConnectorEndpoint): (SceneNode & DimensionAndPositionMixin) | null {
+async function getEndpointNode(endpoint: ConnectorEndpoint): Promise<(SceneNode & DimensionAndPositionMixin) | null> {
   if (!("endpointNodeId" in endpoint)) {
     return null;
   }
-  const node = figma.getNodeById(endpoint.endpointNodeId);
+  const node = await figma.getNodeByIdAsync(endpoint.endpointNodeId);
   if (!node || !("x" in node) || !("width" in node)) {
     return null;
   }
@@ -268,8 +268,8 @@ async function insertNodeOnConnector(
   text: string,
   isDefaultNode: boolean
 ): Promise<void> {
-  const startNode = getEndpointNode(connector.connectorStart);
-  const endNode = getEndpointNode(connector.connectorEnd);
+  const startNode = await getEndpointNode(connector.connectorStart);
+  const endNode = await getEndpointNode(connector.connectorEnd);
   if (!startNode || !endNode) {
     throw new Error("Connector must be attached to two nodes.");
   }
@@ -322,8 +322,11 @@ async function insertNodeOnShapeLink(
 ): Promise<void> {
   const startNodeId = shapeLink.getPluginData(FLOW_LINK_START_NODE);
   const endNodeId = shapeLink.getPluginData(FLOW_LINK_END_NODE);
-  const startNode = figma.getNodeById(startNodeId);
-  const endNode = figma.getNodeById(endNodeId);
+  if (!startNodeId || !endNodeId) {
+    throw new Error("Shape link is missing endpoint metadata.");
+  }
+  const startNode = await figma.getNodeByIdAsync(startNodeId);
+  const endNode = await figma.getNodeByIdAsync(endNodeId);
   if (!startNode || !endNode || !("x" in startNode) || !("x" in endNode)) {
     throw new Error("Shape link is missing endpoint nodes.");
   }
