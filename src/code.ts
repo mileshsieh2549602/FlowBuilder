@@ -63,6 +63,12 @@ function createLinkBetweenNodes(
   targetNode: SceneNode & DimensionAndPositionMixin,
   direction: HorizontalMagnet
 ): SceneNode {
+  // Leftward links are rendered with the shape fallback to guarantee
+  // a visually connected elbow line + arrowhead in all editor environments.
+  if (direction === "LEFT") {
+    return createFallbackShapeLink(sourceNode, targetNode, direction);
+  }
+
   const startMagnet: HorizontalMagnet = direction === "RIGHT" ? "RIGHT" : "LEFT";
   const endMagnet: HorizontalMagnet = direction === "RIGHT" ? "LEFT" : "RIGHT";
 
