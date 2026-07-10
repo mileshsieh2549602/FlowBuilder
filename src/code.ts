@@ -22,6 +22,9 @@ type PluginRequest =
 
 const FLOW_NODE_MARK = "flow-builder-node";
 const FLOW_NODE_TYPE = "flow-builder-node-type";
+const FLOW_LINK_MARK = "flow-builder-link";
+const FLOW_LINK_START_NODE = "flow-builder-link-start-node";
+const FLOW_LINK_END_NODE = "flow-builder-link-end-node";
 const FLOW_SPACING = 120;
 const FONT_REGULAR: FontName = { family: "Inter", style: "Regular" };
 let autoNodeGuard = false;
@@ -163,21 +166,105 @@ async function generateConnectorFromSelection(payload: GenerateConnectorPayload)
   const connectorMagnets = getConnectorMagnets(payload.linePosition);
   const arrowCaps = getArrowCaps(payload.arrowPosition);
 
-  const connector = figma.createConnector();
-  connector.name = "Flow Connector";
-  connector.connectorStart = { endpointNodeId: first.id, magnet: connectorMagnets.start };
-  connector.connectorEnd = { endpointNodeId: second.id, magnet: connectorMagnets.end };
-  connector.strokeWeight = 3;
-  connector.cornerRadius = 14;
-  connector.fills = [];
-  connector.strokes = [{ type: "SOLID", color: hexToRgb("#383838") }];
-  connector.connectorStartStrokeCap = arrowCaps.start;
-  connector.connectorEndStrokeCap = arrowCaps.end;
-  figma.currentPage.appendChild(connector);
-
-  figma.currentPage.selection = [connector];
-  figma.viewport.scrollAndZoomIntoView([first, second, connector]);
+  const linkNode = createLinkBetweenNodes(first, second, connectorMagnets.start, connectorMagnets.end, arrowCaps);
+  figma.currentPage.selection = [linkNode];
+  figma.viewport.scrollAndZoomIntoView([first, second, linkNode]);
   figma.notify(`Connector generated (${capitalize(magnet.toLowerCase())} side). Click the line to insert a default node.`);
+}
+
+function createLinkBetweenNodes(
+  first: SceneNode & DimensionAndPositionMixin,
+  second: SceneNode & DimensionAndPositionMixin,
+  startMagnet: Magnet,
+  endMagnet: Magnet,
+  arrowCaps: { start: ConnectorStrokeCap; end: ConnectorStrokeCap }
+): SceneNode {
+  const canCreateConnector = typeof figma.createConnector === "function";
+  if (canCreateConnector) {
+    try {
+      const connector = figma.createConnector();
+      connector.name = "Flow Connector";
+      connector.connectorStart = { endpointNodeId: first.id, magnet: startMagnet };
+      connector.connectorEnd = { endpointNodeId: second.id, magnet: endMagnet };
+      connector.strokeWeight = 3;
+      connector.cornerRadius = 14;
+      connector.fills = [];
+      connector.strokes = [{ type: "SOLID", color: hexToRgb("#383838") }];
+      connector.connectorStartStrokeCap = arrowCaps.start;
+      connector.connectorEndStrokeCap = arrowCaps.end;
+      figma.currentPage.appendChild(connector);
+      return connector;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Connector API unavailable.";
+      figma.notify(`Connector API unavailable, switched to shape line. ${message}`);
+    }
+  }
+  return createFallbackShapeLink(first, second, startMagnet, endMagnet, arrowCaps);
+}
+
+function createFallbackShapeLink(
+  first: SceneNode & DimensionAndPositionMixin,
+  second: SceneNode & DimensionAndPositionMixin,
+  startMagnet: Magnet,
+  endMagnet: Magnet,
+  arrowCaps: { start: ConnectorStrokeCap; end: ConnectorStrokeCap }
+): SceneNode {
+  const startPoint = getAttachPoint(first, startMagnet);
+  const endPoint = getAttachPoint(second, endMagnet);
+  const dx = endPoint.x - startPoint.x;
+  const dy = endPoint.y - startPoint.y;
+  const length = Math.max(Math.sqrt(dx * dx + dy * dy), 2);
+  const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+  const line = figma.createRectangle();
+  line.name = "Flow Connector (Shape)";
+  line.resize(length, 3);
+  line.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
+  line.strokes = [];
+  line.x = (startPoint.x + endPoint.x) / 2 - length / 2;
+  line.y = (startPoint.y + endPoint.y) / 2 - 1.5;
+  line.rotation = angle;
+  line.setPluginData(FLOW_LINK_MARK, "true");
+  line.setPluginData(FLOW_LINK_START_NODE, first.id);
+  line.setPluginData(FLOW_LINK_END_NODE, second.id);
+  figma.currentPage.appendChild(line);
+
+  const hasArrowAtEnd = arrowCaps.end !== "NONE";
+  const hasArrowAtStart = arrowCaps.start !== "NONE";
+  if (hasArrowAtEnd || hasArrowAtStart) {
+    const arrowNode = figma.createPolygon();
+    arrowNode.name = "Flow Arrow (Shape)";
+    arrowNode.pointCount = 3;
+    arrowNode.resize(10, 10);
+    arrowNode.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
+    arrowNode.strokes = [];
+    if (hasArrowAtEnd) {
+      arrowNode.x = endPoint.x - 5;
+      arrowNode.y = endPoint.y - 5;
+      arrowNode.rotation = angle + 90;
+    } else {
+      arrowNode.x = startPoint.x - 5;
+      arrowNode.y = startPoint.y - 5;
+      arrowNode.rotation = angle - 90;
+    }
+    figma.currentPage.appendChild(arrowNode);
+  }
+  return line;
+}
+
+function getAttachPoint(node: SceneNode & DimensionAndPositionMixin, magnet: Magnet): { x: number; y: number } {
+  switch (magnet) {
+    case "TOP":
+      return { x: node.x + node.width / 2, y: node.y };
+    case "BOTTOM":
+      return { x: node.x + node.width / 2, y: node.y + node.height };
+    case "LEFT":
+      return { x: node.x, y: node.y + node.height / 2 };
+    case "RIGHT":
+      return { x: node.x + node.width, y: node.y + node.height / 2 };
+    default:
+      return { x: node.x + node.width / 2, y: node.y + node.height / 2 };
+  }
 }
 
 async function generateNodeFromSelection(payload: GenerateNodePayload): Promise<void> {
