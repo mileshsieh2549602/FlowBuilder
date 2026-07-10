@@ -1,6 +1,7 @@
 figma.showUI(__html__, { width: 360, height: 300 });
 
 type PluginRequest = { type: "generate-connector" };
+type HorizontalMagnet = "LEFT" | "RIGHT";
 
 figma.ui.onmessage = async (msg: PluginRequest) => {
   try {
@@ -35,7 +36,7 @@ function isFrameOrImage(node: SceneNode): node is SceneNode & DimensionAndPositi
 
 function getAttachPoint(
   node: SceneNode & DimensionAndPositionMixin,
-  magnet: "LEFT" | "RIGHT"
+  magnet: HorizontalMagnet
 ): { x: number; y: number } {
   if (magnet === "LEFT") {
     return { x: node.x, y: node.y + node.height / 2 };
@@ -49,24 +50,28 @@ async function generateConnectorFromSelection(): Promise<void> {
     throw new Error("Please select exactly 2 Frame/Image nodes.");
   }
 
-  const ordered = [...selected].sort((a, b) => a.x - b.x || a.y - b.y);
-  const [first, second] = ordered;
+  const [sourceNode, targetNode] = selected;
+  const direction: HorizontalMagnet = targetNode.x >= sourceNode.x ? "RIGHT" : "LEFT";
 
-  const linkNode = createLinkBetweenNodes(first, second);
-  figma.currentPage.selection = [linkNode];
-  figma.notify("Connector generated.");
+  const linkNode = createLinkBetweenNodes(sourceNode, targetNode, direction);
+  figma.currentPage.selection = [sourceNode, targetNode, linkNode];
+  figma.notify(`Connector generated (${direction === "RIGHT" ? "rightward" : "leftward"}).`);
 }
 
 function createLinkBetweenNodes(
-  first: SceneNode & DimensionAndPositionMixin,
-  second: SceneNode & DimensionAndPositionMixin
+  sourceNode: SceneNode & DimensionAndPositionMixin,
+  targetNode: SceneNode & DimensionAndPositionMixin,
+  direction: HorizontalMagnet
 ): SceneNode {
+  const startMagnet: HorizontalMagnet = direction === "RIGHT" ? "RIGHT" : "LEFT";
+  const endMagnet: HorizontalMagnet = direction === "RIGHT" ? "LEFT" : "RIGHT";
+
   if (typeof figma.createConnector === "function") {
     try {
       const connector = figma.createConnector();
       connector.name = "Flow Connector";
-      connector.connectorStart = { endpointNodeId: first.id, magnet: "RIGHT" };
-      connector.connectorEnd = { endpointNodeId: second.id, magnet: "LEFT" };
+      connector.connectorStart = { endpointNodeId: sourceNode.id, magnet: startMagnet };
+      connector.connectorEnd = { endpointNodeId: targetNode.id, magnet: endMagnet };
       connector.connectorLineType = "ELBOWED";
       connector.strokeWeight = 3;
       connector.cornerRadius = 14;
@@ -81,28 +86,33 @@ function createLinkBetweenNodes(
       figma.notify(`Connector API unavailable, switched to shape line. ${message}`);
     }
   }
-  return createFallbackShapeLink(first, second);
+  return createFallbackShapeLink(sourceNode, targetNode, direction);
 }
 
 function createFallbackShapeLink(
-  first: SceneNode & DimensionAndPositionMixin,
-  second: SceneNode & DimensionAndPositionMixin
+  sourceNode: SceneNode & DimensionAndPositionMixin,
+  targetNode: SceneNode & DimensionAndPositionMixin,
+  direction: HorizontalMagnet
 ): GroupNode {
-  const startPoint = getAttachPoint(first, "RIGHT");
-  const endPoint = getAttachPoint(second, "LEFT");
+  const startPoint = getAttachPoint(sourceNode, direction === "RIGHT" ? "RIGHT" : "LEFT");
+  const endPoint = getAttachPoint(targetNode, direction === "RIGHT" ? "LEFT" : "RIGHT");
   const arrowLength = 10;
   const stroke = 3;
-  const finalX = Math.max(startPoint.x + 2, endPoint.x - arrowLength);
+  const travelDistance = endPoint.x - startPoint.x;
+  const arrowInset = direction === "RIGHT" ? -arrowLength : arrowLength;
+  const finalX = startPoint.x + travelDistance + arrowInset;
   const midX = startPoint.x + (finalX - startPoint.x) / 2;
+  const segment1Width = Math.max(Math.abs(midX - startPoint.x), 2);
+  const segment3Width = Math.max(Math.abs(finalX - midX), 2);
 
   const nodes: SceneNode[] = [];
 
   const segment1 = figma.createRectangle();
   segment1.name = "Flow Link Segment";
-  segment1.resize(Math.max(midX - startPoint.x, 2), stroke);
+  segment1.resize(segment1Width, stroke);
   segment1.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
   segment1.strokes = [];
-  segment1.x = startPoint.x;
+  segment1.x = Math.min(startPoint.x, midX);
   segment1.y = startPoint.y - stroke / 2;
   figma.currentPage.appendChild(segment1);
   nodes.push(segment1);
@@ -121,10 +131,10 @@ function createFallbackShapeLink(
 
   const segment3 = figma.createRectangle();
   segment3.name = "Flow Link Segment";
-  segment3.resize(Math.max(finalX - midX, 2), stroke);
+  segment3.resize(segment3Width, stroke);
   segment3.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
   segment3.strokes = [];
-  segment3.x = midX;
+  segment3.x = Math.min(midX, finalX);
   segment3.y = endPoint.y - stroke / 2;
   figma.currentPage.appendChild(segment3);
   nodes.push(segment3);
@@ -135,9 +145,9 @@ function createFallbackShapeLink(
   arrow.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
   arrow.strokes = [];
   arrow.resize(10, 10);
-  arrow.x = endPoint.x - arrowLength;
+  arrow.x = direction === "RIGHT" ? endPoint.x - arrowLength : endPoint.x;
   arrow.y = endPoint.y - 5;
-  arrow.rotation = 0;
+  arrow.rotation = direction === "RIGHT" ? 0 : 180;
   figma.currentPage.appendChild(arrow);
   nodes.push(arrow);
 
