@@ -54,7 +54,6 @@ async function generateConnectorFromSelection(): Promise<void> {
 
   const linkNode = createLinkBetweenNodes(first, second);
   figma.currentPage.selection = [linkNode];
-  figma.viewport.scrollAndZoomIntoView([first, second, linkNode]);
   figma.notify("Connector generated.");
 }
 
