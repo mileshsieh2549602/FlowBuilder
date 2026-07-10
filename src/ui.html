@@ -127,6 +127,21 @@
         color: #6e6e6e;
       }
 
+      .status {
+        min-height: 16px;
+        margin-top: 6px;
+        font-size: 11px;
+        line-height: 16px;
+      }
+
+      .status.success {
+        color: #157347;
+      }
+
+      .status.error {
+        color: #b42318;
+      }
+
       .instruction {
         margin: 0;
         padding-left: 18px;
@@ -178,6 +193,7 @@
           </label>
         </div>
         <button class="primary" type="submit">Generate Connector</button>
+        <div id="connectorStatus" class="status"></div>
       </form>
 
       <form id="node-form" class="section">
@@ -194,6 +210,7 @@
           <input id="nodeText" value="Text" />
         </label>
         <button class="secondary" type="submit">Generate / Update Node</button>
+        <div id="nodeStatus" class="status"></div>
         <span class="pill">Default node: None</span>
       </form>
 

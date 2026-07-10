@@ -31,19 +31,26 @@ figma.ui.onmessage = async (msg: PluginRequest) => {
     switch (msg.type) {
       case "generate-connector":
         await generateConnectorFromSelection(msg.payload);
+        sendStatus("connector", "success", "Successful");
         break;
       case "generate-node":
         await generateNodeFromSelection(msg.payload);
+        sendStatus("node", "success", "Done!");
         break;
       case "close-plugin":
         figma.closePlugin();
         break;
       default:
-        figma.notify("Unsupported command.");
+        throw new Error("Unsupported command.");
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected plugin error.";
     figma.notify(message, { error: true });
+    if (msg.type === "generate-connector") {
+      sendStatus("connector", "error", message);
+    } else if (msg.type === "generate-node") {
+      sendStatus("node", "error", message);
+    }
   }
 };
 
@@ -104,6 +111,21 @@ function getMagnetFromLinePosition(position: LinePosition): Magnet {
   }
 }
 
+function getConnectorMagnets(position: LinePosition): { start: Magnet; end: Magnet } {
+  switch (position) {
+    case "right":
+      return { start: "RIGHT", end: "LEFT" };
+    case "left":
+      return { start: "LEFT", end: "RIGHT" };
+    case "top":
+      return { start: "TOP", end: "BOTTOM" };
+    case "bottom":
+      return { start: "BOTTOM", end: "TOP" };
+    default:
+      return { start: "RIGHT", end: "LEFT" };
+  }
+}
+
 function alignNodesForConnection(
   first: SceneNode & DimensionAndPositionMixin,
   second: SceneNode & DimensionAndPositionMixin,
@@ -138,13 +160,14 @@ async function generateConnectorFromSelection(payload: GenerateConnectorPayload)
   alignNodesForConnection(first, second, payload.linePosition);
 
   const magnet = getMagnetFromLinePosition(payload.linePosition);
+  const connectorMagnets = getConnectorMagnets(payload.linePosition);
   const arrowCaps = getArrowCaps(payload.arrowPosition);
 
   const connector = figma.createConnector();
   connector.name = "Flow Connector";
-  connector.connectorStart = { endpointNodeId: first.id, magnet };
-  connector.connectorEnd = { endpointNodeId: second.id, magnet };
-  connector.strokeWeight = 2;
+  connector.connectorStart = { endpointNodeId: first.id, magnet: connectorMagnets.start };
+  connector.connectorEnd = { endpointNodeId: second.id, magnet: connectorMagnets.end };
+  connector.strokeWeight = 3;
   connector.cornerRadius = 14;
   connector.fills = [];
   connector.strokes = [{ type: "SOLID", color: hexToRgb("#383838") }];
@@ -154,7 +177,7 @@ async function generateConnectorFromSelection(payload: GenerateConnectorPayload)
 
   figma.currentPage.selection = [connector];
   figma.viewport.scrollAndZoomIntoView([first, second, connector]);
-  figma.notify("Connector and arrow generated. Click the line to insert a default node.");
+  figma.notify(`Connector generated (${capitalize(magnet.toLowerCase())} side). Click the line to insert a default node.`);
 }
 
 async function generateNodeFromSelection(payload: GenerateNodePayload): Promise<void> {
@@ -302,4 +325,15 @@ function hexToRgb(hex: string): RGB {
     g: ((parsed >> 8) & 255) / 255,
     b: (parsed & 255) / 255
   };
+}
+
+function sendStatus(scope: "connector" | "node", kind: "success" | "error", message: string): void {
+  figma.ui.postMessage({
+    type: "status",
+    payload: {
+      scope,
+      kind,
+      message
+    }
+  });
 }
