@@ -7,11 +7,14 @@ type FrameLikeNode = SceneNode & DimensionAndPositionMixin;
 let previousFrameSelection = new Set<string>();
 let frameSelectionOrder: string[] = [];
 let isSyncingFallbackLinks = false;
+let pendingSyncTimer: ReturnType<typeof setTimeout> | null = null;
 
 const FALLBACK_LINK_MARK = "flow-builder-fallback-link";
 const FALLBACK_LINK_START_ID = "flow-builder-fallback-start-id";
 const FALLBACK_LINK_END_ID = "flow-builder-fallback-end-id";
 const FALLBACK_ROLE_KEY = "flow-builder-fallback-role";
+const SYNC_THROTTLE_MS = 33;
+const GEOMETRY_EPSILON = 0.25;
 
 figma.ui.onmessage = async (msg: PluginRequest) => {
   try {
@@ -32,7 +35,7 @@ figma.on("selectionchange", () => {
 });
 
 figma.on("documentchange", () => {
-  void syncFallbackLinks();
+  scheduleFallbackSync();
 });
 
 function isImageNode(node: SceneNode): boolean {
@@ -248,26 +251,14 @@ function layoutFallbackShapeLink(
   const minX = Math.min(segment1Abs.x, segment2Abs.x, segment3Abs.x, arrowAbs.x);
   const minY = Math.min(segment1Abs.y, segment2Abs.y, segment3Abs.y, arrowAbs.y);
 
-  group.x = minX;
-  group.y = minY;
+  maybeSetPosition(group, minX, minY);
 
-  segment1.resize(segment1Abs.w, segment1Abs.h);
-  segment1.x = segment1Abs.x - minX;
-  segment1.y = segment1Abs.y - minY;
-
-  segment2.resize(segment2Abs.w, segment2Abs.h);
-  segment2.x = segment2Abs.x - minX;
-  segment2.y = segment2Abs.y - minY;
-
-  segment3.resize(segment3Abs.w, segment3Abs.h);
-  segment3.x = segment3Abs.x - minX;
-  segment3.y = segment3Abs.y - minY;
+  maybeSetRectGeometry(segment1, segment1Abs.x - minX, segment1Abs.y - minY, segment1Abs.w, segment1Abs.h);
+  maybeSetRectGeometry(segment2, segment2Abs.x - minX, segment2Abs.y - minY, segment2Abs.w, segment2Abs.h);
+  maybeSetRectGeometry(segment3, segment3Abs.x - minX, segment3Abs.y - minY, segment3Abs.w, segment3Abs.h);
 
   arrow.vectorPaths = [{ windingRule: "NONZERO", data: arrowPath }];
-  arrow.resize(arrowAbs.w, arrowAbs.h);
-  arrow.x = arrowAbs.x - minX;
-  arrow.y = arrowAbs.y - minY;
-  arrow.rotation = 0;
+  maybeSetVectorGeometry(arrow, arrowAbs.x - minX, arrowAbs.y - minY, arrowAbs.w, arrowAbs.h, 0);
 }
 
 function findFallbackChild<T extends SceneNode>(
@@ -310,6 +301,53 @@ async function syncFallbackLinks(): Promise<void> {
     }
   } finally {
     isSyncingFallbackLinks = false;
+  }
+}
+
+function scheduleFallbackSync(): void {
+  if (pendingSyncTimer) {
+    return;
+  }
+  pendingSyncTimer = setTimeout(() => {
+    pendingSyncTimer = null;
+    void syncFallbackLinks();
+  }, SYNC_THROTTLE_MS);
+}
+
+function almostEqual(a: number, b: number): boolean {
+  return Math.abs(a - b) <= GEOMETRY_EPSILON;
+}
+
+function maybeSetPosition(node: SceneNode & DimensionAndPositionMixin, x: number, y: number): void {
+  if (!almostEqual(node.x, x)) {
+    node.x = x;
+  }
+  if (!almostEqual(node.y, y)) {
+    node.y = y;
+  }
+}
+
+function maybeSetRectGeometry(node: RectangleNode, x: number, y: number, w: number, h: number): void {
+  maybeSetPosition(node, x, y);
+  if (!almostEqual(node.width, w) || !almostEqual(node.height, h)) {
+    node.resize(w, h);
+  }
+}
+
+function maybeSetVectorGeometry(
+  node: VectorNode,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  rotation: number
+): void {
+  maybeSetPosition(node, x, y);
+  if (!almostEqual(node.width, w) || !almostEqual(node.height, h)) {
+    node.resize(w, h);
+  }
+  if (!almostEqual(node.rotation, rotation)) {
+    node.rotation = rotation;
   }
 }
 
