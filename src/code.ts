@@ -6,6 +6,12 @@ type FrameLikeNode = SceneNode & DimensionAndPositionMixin;
 
 let previousFrameSelection = new Set<string>();
 let frameSelectionOrder: string[] = [];
+let isSyncingFallbackLinks = false;
+
+const FALLBACK_LINK_MARK = "flow-builder-fallback-link";
+const FALLBACK_LINK_START_ID = "flow-builder-fallback-start-id";
+const FALLBACK_LINK_END_ID = "flow-builder-fallback-end-id";
+const FALLBACK_ROLE_KEY = "flow-builder-fallback-role";
 
 figma.ui.onmessage = async (msg: PluginRequest) => {
   try {
@@ -23,6 +29,10 @@ figma.ui.onmessage = async (msg: PluginRequest) => {
 
 figma.on("selectionchange", () => {
   updateSelectionOrder();
+});
+
+figma.on("documentchange", () => {
+  void syncFallbackLinks();
 });
 
 function isImageNode(node: SceneNode): boolean {
@@ -138,50 +148,29 @@ function createFallbackShapeLink(
   targetNode: SceneNode & DimensionAndPositionMixin,
   direction: HorizontalMagnet
 ): GroupNode {
-  const startPoint = getAttachPoint(sourceNode, direction === "RIGHT" ? "RIGHT" : "LEFT");
-  const endPoint = getAttachPoint(targetNode, direction === "RIGHT" ? "LEFT" : "RIGHT");
-  const arrowLength = 10;
-  const stroke = 3;
-  const travelDistance = endPoint.x - startPoint.x;
-  const arrowInset = direction === "RIGHT" ? -arrowLength : arrowLength;
-  const finalX = startPoint.x + travelDistance + arrowInset;
-  const midX = startPoint.x + (finalX - startPoint.x) / 2;
-  const segment1Width = Math.max(Math.abs(midX - startPoint.x), 2);
-  const segment3Width = Math.max(Math.abs(finalX - midX), 2);
-
-  const nodes: SceneNode[] = [];
-
   const segment1 = figma.createRectangle();
   segment1.name = "Flow Link Segment";
-  segment1.resize(segment1Width, stroke);
+  segment1.resize(10, 3);
   segment1.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
   segment1.strokes = [];
-  segment1.x = Math.min(startPoint.x, midX);
-  segment1.y = startPoint.y - stroke / 2;
+  segment1.setPluginData(FALLBACK_ROLE_KEY, "segment-1");
   figma.currentPage.appendChild(segment1);
-  nodes.push(segment1);
-
-  if (Math.abs(endPoint.y - startPoint.y) >= 1) {
-    const segment2 = figma.createRectangle();
-    segment2.name = "Flow Link Segment";
-    segment2.resize(stroke, Math.abs(endPoint.y - startPoint.y));
-    segment2.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
-    segment2.strokes = [];
-    segment2.x = midX - stroke / 2;
-    segment2.y = Math.min(startPoint.y, endPoint.y);
-    figma.currentPage.appendChild(segment2);
-    nodes.push(segment2);
-  }
 
   const segment3 = figma.createRectangle();
   segment3.name = "Flow Link Segment";
-  segment3.resize(segment3Width, stroke);
+  segment3.resize(10, 3);
   segment3.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
   segment3.strokes = [];
-  segment3.x = Math.min(midX, finalX);
-  segment3.y = endPoint.y - stroke / 2;
+  segment3.setPluginData(FALLBACK_ROLE_KEY, "segment-3");
   figma.currentPage.appendChild(segment3);
-  nodes.push(segment3);
+
+  const segment2 = figma.createRectangle();
+  segment2.name = "Flow Link Segment";
+  segment2.resize(3, 10);
+  segment2.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
+  segment2.strokes = [];
+  segment2.setPluginData(FALLBACK_ROLE_KEY, "segment-2");
+  figma.currentPage.appendChild(segment2);
 
   const arrow = figma.createVector();
   arrow.name = "Flow Arrow";
@@ -194,15 +183,134 @@ function createFallbackShapeLink(
   arrow.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
   arrow.strokes = [];
   arrow.resize(10, 10);
-  arrow.x = direction === "RIGHT" ? endPoint.x - arrowLength : endPoint.x;
-  arrow.y = endPoint.y - 5;
-  arrow.rotation = 0;
+  arrow.setPluginData(FALLBACK_ROLE_KEY, "arrow");
   figma.currentPage.appendChild(arrow);
-  nodes.push(arrow);
 
-  const group = figma.group(nodes, figma.currentPage);
+  const group = figma.group([segment1, segment2, segment3, arrow], figma.currentPage);
   group.name = "Flow Connector (Shape)";
+  group.setPluginData(FALLBACK_LINK_MARK, "true");
+  group.setPluginData(FALLBACK_LINK_START_ID, sourceNode.id);
+  group.setPluginData(FALLBACK_LINK_END_ID, targetNode.id);
+  layoutFallbackShapeLink(group, sourceNode, targetNode, direction);
   return group;
+}
+
+function layoutFallbackShapeLink(
+  group: GroupNode,
+  sourceNode: SceneNode & DimensionAndPositionMixin,
+  targetNode: SceneNode & DimensionAndPositionMixin,
+  direction: HorizontalMagnet
+): void {
+  const segment1 = findFallbackChild<RectangleNode>(group, "segment-1", "RECTANGLE");
+  const segment2 = findFallbackChild<RectangleNode>(group, "segment-2", "RECTANGLE");
+  const segment3 = findFallbackChild<RectangleNode>(group, "segment-3", "RECTANGLE");
+  const arrow = findFallbackChild<VectorNode>(group, "arrow", "VECTOR");
+  if (!segment1 || !segment2 || !segment3 || !arrow) {
+    return;
+  }
+
+  const startPoint = getAttachPoint(sourceNode, direction === "RIGHT" ? "RIGHT" : "LEFT");
+  const endPoint = getAttachPoint(targetNode, direction === "RIGHT" ? "LEFT" : "RIGHT");
+
+  const arrowLength = 10;
+  const stroke = 3;
+  const travelDistance = endPoint.x - startPoint.x;
+  const arrowInset = direction === "RIGHT" ? -arrowLength : arrowLength;
+  const finalX = startPoint.x + travelDistance + arrowInset;
+  const midX = startPoint.x + (finalX - startPoint.x) / 2;
+
+  const segment1Abs = {
+    x: Math.min(startPoint.x, midX),
+    y: startPoint.y - stroke / 2,
+    w: Math.max(Math.abs(midX - startPoint.x), 2),
+    h: stroke
+  };
+  const segment2Abs = {
+    x: midX - stroke / 2,
+    y: Math.min(startPoint.y, endPoint.y),
+    w: stroke,
+    h: Math.max(Math.abs(endPoint.y - startPoint.y), 0.01)
+  };
+  const segment3Abs = {
+    x: Math.min(midX, finalX),
+    y: endPoint.y - stroke / 2,
+    w: Math.max(Math.abs(finalX - midX), 2),
+    h: stroke
+  };
+  const arrowPath = direction === "RIGHT" ? "M 0 0 L 10 5 L 0 10 Z" : "M 10 0 L 0 5 L 10 10 Z";
+  const arrowAbs = {
+    x: direction === "RIGHT" ? endPoint.x - arrowLength : endPoint.x,
+    y: endPoint.y - 5,
+    w: 10,
+    h: 10
+  };
+
+  const minX = Math.min(segment1Abs.x, segment2Abs.x, segment3Abs.x, arrowAbs.x);
+  const minY = Math.min(segment1Abs.y, segment2Abs.y, segment3Abs.y, arrowAbs.y);
+
+  group.x = minX;
+  group.y = minY;
+
+  segment1.resize(segment1Abs.w, segment1Abs.h);
+  segment1.x = segment1Abs.x - minX;
+  segment1.y = segment1Abs.y - minY;
+
+  segment2.resize(segment2Abs.w, segment2Abs.h);
+  segment2.x = segment2Abs.x - minX;
+  segment2.y = segment2Abs.y - minY;
+
+  segment3.resize(segment3Abs.w, segment3Abs.h);
+  segment3.x = segment3Abs.x - minX;
+  segment3.y = segment3Abs.y - minY;
+
+  arrow.vectorPaths = [{ windingRule: "NONZERO", data: arrowPath }];
+  arrow.resize(arrowAbs.w, arrowAbs.h);
+  arrow.x = arrowAbs.x - minX;
+  arrow.y = arrowAbs.y - minY;
+  arrow.rotation = 0;
+}
+
+function findFallbackChild<T extends SceneNode>(
+  group: GroupNode,
+  role: string,
+  type: SceneNode["type"]
+): T | null {
+  const node = group.children.find((child) => child.type === type && child.getPluginData(FALLBACK_ROLE_KEY) === role);
+  return (node as T | undefined) ?? null;
+}
+
+async function syncFallbackLinks(): Promise<void> {
+  if (isSyncingFallbackLinks) {
+    return;
+  }
+  isSyncingFallbackLinks = true;
+  try {
+    const links = figma.currentPage.findAll(
+      (node): node is GroupNode => node.type === "GROUP" && node.getPluginData(FALLBACK_LINK_MARK) === "true"
+    );
+    for (const group of links) {
+      const startNodeId = group.getPluginData(FALLBACK_LINK_START_ID);
+      const endNodeId = group.getPluginData(FALLBACK_LINK_END_ID);
+      if (!startNodeId || !endNodeId) {
+        continue;
+      }
+
+      const [startNode, endNode] = await Promise.all([
+        figma.getNodeByIdAsync(startNodeId),
+        figma.getNodeByIdAsync(endNodeId)
+      ]);
+      if (!startNode || !endNode || !("x" in startNode) || !("x" in endNode)) {
+        continue;
+      }
+
+      const startDim = startNode as SceneNode & DimensionAndPositionMixin;
+      const endDim = endNode as SceneNode & DimensionAndPositionMixin;
+      const direction: HorizontalMagnet = endDim.x >= startDim.x ? "RIGHT" : "LEFT";
+      layoutFallbackShapeLink(group, startDim, endDim, direction);
+    }
+  } finally {
+    isSyncingFallbackLinks = false;
+  }
 }
 
 function hexToRgb(hex: string): RGB {
