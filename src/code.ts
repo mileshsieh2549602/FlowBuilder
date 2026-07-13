@@ -16,6 +16,7 @@ const FALLBACK_LINK_MARK = "flow-builder-fallback-link";
 const FALLBACK_LINK_START_ID = "flow-builder-fallback-start-id";
 const FALLBACK_LINK_END_ID = "flow-builder-fallback-end-id";
 const FALLBACK_ROLE_KEY = "flow-builder-fallback-role";
+const FALLBACK_CONTAINER_ROLE = "flow-builder-container";
 const FALLBACK_DEBUG_ENABLED = "flow-builder-debug-enabled";
 const SYNC_THROTTLE_MS = 33;
 const GEOMETRY_EPSILON = 0.25;
@@ -178,13 +179,14 @@ function createFallbackShapeLink(
   sourceNode: SceneNode & DimensionAndPositionMixin,
   targetNode: SceneNode & DimensionAndPositionMixin,
   direction: HorizontalMagnet
-): FrameNode {
+): GroupNode {
   const container = figma.createFrame();
-  container.name = "Flow Connector (Shape)";
+  container.name = "_flow-connector-internal";
   container.fills = [];
   container.strokes = [];
   container.clipsContent = false;
   container.resize(10, 10);
+  container.setPluginData(FALLBACK_CONTAINER_ROLE, "true");
   figma.currentPage.appendChild(container);
 
   const segment1 = figma.createRectangle();
@@ -252,19 +254,25 @@ function createFallbackShapeLink(
   debugEnd.visible = debugEnabled;
   container.appendChild(debugEnd);
 
-  container.setPluginData(FALLBACK_LINK_MARK, "true");
-  container.setPluginData(FALLBACK_LINK_START_ID, sourceNode.id);
-  container.setPluginData(FALLBACK_LINK_END_ID, targetNode.id);
-  layoutFallbackShapeLink(container, sourceNode, targetNode, direction);
-  return container;
+  const wrapper = figma.group([container], figma.currentPage);
+  wrapper.name = "\u200B";
+  wrapper.setPluginData(FALLBACK_LINK_MARK, "true");
+  wrapper.setPluginData(FALLBACK_LINK_START_ID, sourceNode.id);
+  wrapper.setPluginData(FALLBACK_LINK_END_ID, targetNode.id);
+  layoutFallbackShapeLink(wrapper, sourceNode, targetNode, direction);
+  return wrapper;
 }
 
 function layoutFallbackShapeLink(
-  container: FrameNode,
+  wrapper: GroupNode,
   sourceNode: SceneNode & DimensionAndPositionMixin,
   targetNode: SceneNode & DimensionAndPositionMixin,
   direction: HorizontalMagnet
 ): void {
+  const container = getFallbackContainer(wrapper);
+  if (!container) {
+    return;
+  }
   const segment1 = findFallbackChild<RectangleNode>(container, "segment-1", "RECTANGLE");
   const segment2 = findFallbackChild<RectangleNode>(container, "segment-2", "RECTANGLE");
   const segment3 = findFallbackChild<RectangleNode>(container, "segment-3", "RECTANGLE");
@@ -334,7 +342,8 @@ function layoutFallbackShapeLink(
     debugEndAbs.y
   );
 
-  maybeSetPosition(container, minX, minY);
+  maybeSetPosition(wrapper, minX, minY);
+  maybeSetPosition(container, 0, 0);
   const containerWidth = Math.max(
     segment1Abs.x + segment1Abs.w,
     segment2Abs.x + segment2Abs.w,
@@ -383,6 +392,13 @@ function findFallbackChild<T extends SceneNode>(
   return (node as T | undefined) ?? null;
 }
 
+function getFallbackContainer(wrapper: GroupNode): FrameNode | null {
+  const container = wrapper.children.find(
+    (child): child is FrameNode => child.type === "FRAME" && child.getPluginData(FALLBACK_CONTAINER_ROLE) === "true"
+  );
+  return container ?? null;
+}
+
 async function syncFallbackLinks(): Promise<void> {
   if (isSyncingFallbackLinks) {
     return;
@@ -390,11 +406,11 @@ async function syncFallbackLinks(): Promise<void> {
   isSyncingFallbackLinks = true;
   try {
     const links = figma.currentPage.findAll(
-      (node): node is FrameNode => node.type === "FRAME" && node.getPluginData(FALLBACK_LINK_MARK) === "true"
+      (node): node is GroupNode => node.type === "GROUP" && node.getPluginData(FALLBACK_LINK_MARK) === "true"
     );
-    for (const container of links) {
-      const startNodeId = container.getPluginData(FALLBACK_LINK_START_ID);
-      const endNodeId = container.getPluginData(FALLBACK_LINK_END_ID);
+    for (const wrapper of links) {
+      const startNodeId = wrapper.getPluginData(FALLBACK_LINK_START_ID);
+      const endNodeId = wrapper.getPluginData(FALLBACK_LINK_END_ID);
       if (!startNodeId || !endNodeId) {
         continue;
       }
@@ -413,7 +429,7 @@ async function syncFallbackLinks(): Promise<void> {
       const endBounds = getNodeBoundsInPage(endDim);
       const direction: HorizontalMagnet =
         endBounds.x + endBounds.width / 2 >= startBounds.x + startBounds.width / 2 ? "RIGHT" : "LEFT";
-      layoutFallbackShapeLink(container, startDim, endDim, direction);
+      layoutFallbackShapeLink(wrapper, startDim, endDim, direction);
     }
   } finally {
     isSyncingFallbackLinks = false;
@@ -441,12 +457,16 @@ function ensureFallbackPolling(): void {
 
 function applyDebugVisibilityToAllLinks(): void {
   const links = figma.currentPage.findAll(
-    (node): node is FrameNode => node.type === "FRAME" && node.getPluginData(FALLBACK_LINK_MARK) === "true"
+    (node): node is GroupNode => node.type === "GROUP" && node.getPluginData(FALLBACK_LINK_MARK) === "true"
   );
-  for (const link of links) {
-    const debugStart = findFallbackChild<EllipseNode>(link, "debug-start", "ELLIPSE");
-    const debugMid = findFallbackChild<EllipseNode>(link, "debug-mid", "ELLIPSE");
-    const debugEnd = findFallbackChild<EllipseNode>(link, "debug-end", "ELLIPSE");
+  for (const wrapper of links) {
+    const container = getFallbackContainer(wrapper);
+    if (!container) {
+      continue;
+    }
+    const debugStart = findFallbackChild<EllipseNode>(container, "debug-start", "ELLIPSE");
+    const debugMid = findFallbackChild<EllipseNode>(container, "debug-mid", "ELLIPSE");
+    const debugEnd = findFallbackChild<EllipseNode>(container, "debug-end", "ELLIPSE");
     if (debugStart) {
       debugStart.visible = debugEnabled;
     }
