@@ -142,6 +142,21 @@
         margin-bottom: 2px;
       }
 
+      .debug-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: #383838;
+        margin-top: 4px;
+      }
+
+      .debug-toggle input {
+        width: auto;
+        height: auto;
+        margin: 0;
+      }
+
     </style>
   </head>
   <body>
@@ -155,6 +170,11 @@
         <button class="primary" type="submit">Generate Connector</button>
         <div id="connectorStatus" class="status"></div>
       </form>
+
+      <label class="debug-toggle" for="debugToggle">
+        <input id="debugToggle" type="checkbox" />
+        Debug mode (show endpoint/path nodes)
+      </label>
 
       <div class="section">
         <ol class="instruction">

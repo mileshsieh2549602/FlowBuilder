@@ -1,6 +1,6 @@
 figma.showUI(__html__, { width: 360, height: 300 });
 
-type PluginRequest = { type: "generate-connector" };
+type PluginRequest = { type: "generate-connector" } | { type: "set-debug"; payload: { enabled: boolean } };
 type HorizontalMagnet = "LEFT" | "RIGHT";
 type FrameLikeNode = SceneNode & DimensionAndPositionMixin;
 type NodeBounds = { x: number; y: number; width: number; height: number };
@@ -9,21 +9,34 @@ let previousFrameSelection = new Set<string>();
 let frameSelectionOrder: string[] = [];
 let isSyncingFallbackLinks = false;
 let pendingSyncTimer: ReturnType<typeof setTimeout> | null = null;
+let fallbackPollingTimer: ReturnType<typeof setInterval> | null = null;
+let debugEnabled = false;
 
 const FALLBACK_LINK_MARK = "flow-builder-fallback-link";
 const FALLBACK_LINK_START_ID = "flow-builder-fallback-start-id";
 const FALLBACK_LINK_END_ID = "flow-builder-fallback-end-id";
 const FALLBACK_ROLE_KEY = "flow-builder-fallback-role";
+const FALLBACK_DEBUG_ENABLED = "flow-builder-debug-enabled";
 const SYNC_THROTTLE_MS = 33;
 const GEOMETRY_EPSILON = 0.25;
+const POLLING_SYNC_MS = 250;
 
 figma.ui.onmessage = async (msg: PluginRequest) => {
   try {
-    if (msg.type !== "generate-connector") {
-      throw new Error("Unsupported command.");
+    if (msg.type === "generate-connector") {
+      await generateConnectorFromSelection();
+      sendStatus("success", "Successful");
+      return;
     }
-    await generateConnectorFromSelection();
-    sendStatus("success", "Successful");
+    if (msg.type === "set-debug") {
+      debugEnabled = msg.payload.enabled;
+      await figma.clientStorage.setAsync(FALLBACK_DEBUG_ENABLED, debugEnabled);
+      applyDebugVisibilityToAllLinks();
+      emitDebugState();
+      sendStatus("success", debugEnabled ? "Debug ON" : "Debug OFF");
+      return;
+    }
+    throw new Error("Unsupported command.");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected plugin error.";
     figma.notify(message, { error: true });
@@ -35,7 +48,23 @@ figma.on("selectionchange", () => {
   updateSelectionOrder();
 });
 
+void initializeSettings();
 void initializeDocumentSync();
+
+async function initializeSettings(): Promise<void> {
+  try {
+    const storedDebug = await figma.clientStorage.getAsync(FALLBACK_DEBUG_ENABLED);
+    debugEnabled = storedDebug === true;
+    emitDebugState();
+    setTimeout(() => emitDebugState(), 300);
+  } catch {
+    debugEnabled = false;
+  }
+}
+
+function emitDebugState(): void {
+  figma.ui.postMessage({ type: "debug-state", payload: { enabled: debugEnabled } });
+}
 
 async function initializeDocumentSync(): Promise<void> {
   try {
@@ -47,6 +76,7 @@ async function initializeDocumentSync(): Promise<void> {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to initialize document sync.";
     figma.notify(`Connector sync fallback disabled: ${message}`);
+    ensureFallbackPolling();
   }
 }
 
@@ -104,6 +134,7 @@ async function generateConnectorFromSelection(): Promise<void> {
   const linkNode = createLinkBetweenNodes(sourceNode, targetNode, direction);
   figma.currentPage.selection = [sourceNode, targetNode, linkNode];
   figma.notify(`Connector generated (${direction === "RIGHT" ? "rightward" : "leftward"}).`);
+  ensureFallbackPolling();
 }
 
 function resolveSelectionByOrder(selected: FrameLikeNode[]): [FrameLikeNode, FrameLikeNode] {
@@ -186,7 +217,34 @@ function createFallbackShapeLink(
   arrow.setPluginData(FALLBACK_ROLE_KEY, "arrow");
   figma.currentPage.appendChild(arrow);
 
-  const group = figma.group([segment1, segment2, segment3, arrow], figma.currentPage);
+  const debugStart = figma.createEllipse();
+  debugStart.name = "Debug Start";
+  debugStart.resize(6, 6);
+  debugStart.fills = [{ type: "SOLID", color: hexToRgb("#ff0066") }];
+  debugStart.strokes = [];
+  debugStart.setPluginData(FALLBACK_ROLE_KEY, "debug-start");
+  debugStart.visible = debugEnabled;
+  figma.currentPage.appendChild(debugStart);
+
+  const debugMid = figma.createEllipse();
+  debugMid.name = "Debug Mid";
+  debugMid.resize(6, 6);
+  debugMid.fills = [{ type: "SOLID", color: hexToRgb("#00a3ff") }];
+  debugMid.strokes = [];
+  debugMid.setPluginData(FALLBACK_ROLE_KEY, "debug-mid");
+  debugMid.visible = debugEnabled;
+  figma.currentPage.appendChild(debugMid);
+
+  const debugEnd = figma.createEllipse();
+  debugEnd.name = "Debug End";
+  debugEnd.resize(6, 6);
+  debugEnd.fills = [{ type: "SOLID", color: hexToRgb("#00c853") }];
+  debugEnd.strokes = [];
+  debugEnd.setPluginData(FALLBACK_ROLE_KEY, "debug-end");
+  debugEnd.visible = debugEnabled;
+  figma.currentPage.appendChild(debugEnd);
+
+  const group = figma.group([segment1, segment2, segment3, arrow, debugStart, debugMid, debugEnd], figma.currentPage);
   group.name = "Flow Connector (Shape)";
   group.setPluginData(FALLBACK_LINK_MARK, "true");
   group.setPluginData(FALLBACK_LINK_START_ID, sourceNode.id);
@@ -205,6 +263,9 @@ function layoutFallbackShapeLink(
   const segment2 = findFallbackChild<RectangleNode>(group, "segment-2", "RECTANGLE");
   const segment3 = findFallbackChild<RectangleNode>(group, "segment-3", "RECTANGLE");
   const arrow = findFallbackChild<VectorNode>(group, "arrow", "VECTOR");
+  const debugStart = findFallbackChild<EllipseNode>(group, "debug-start", "ELLIPSE");
+  const debugMid = findFallbackChild<EllipseNode>(group, "debug-mid", "ELLIPSE");
+  const debugEnd = findFallbackChild<EllipseNode>(group, "debug-end", "ELLIPSE");
   if (!segment1 || !segment2 || !segment3 || !arrow) {
     return;
   }
@@ -244,9 +305,28 @@ function layoutFallbackShapeLink(
     w: 10,
     h: 10
   };
+  const debugStartAbs = { x: startPoint.x - 3, y: startPoint.y - 3, w: 6, h: 6 };
+  const debugMidAbs = { x: midX - 3, y: endPoint.y - 3, w: 6, h: 6 };
+  const debugEndAbs = { x: endPoint.x - 3, y: endPoint.y - 3, w: 6, h: 6 };
 
-  const minX = Math.min(segment1Abs.x, segment2Abs.x, segment3Abs.x, arrowAbs.x);
-  const minY = Math.min(segment1Abs.y, segment2Abs.y, segment3Abs.y, arrowAbs.y);
+  const minX = Math.min(
+    segment1Abs.x,
+    segment2Abs.x,
+    segment3Abs.x,
+    arrowAbs.x,
+    debugStartAbs.x,
+    debugMidAbs.x,
+    debugEndAbs.x
+  );
+  const minY = Math.min(
+    segment1Abs.y,
+    segment2Abs.y,
+    segment3Abs.y,
+    arrowAbs.y,
+    debugStartAbs.y,
+    debugMidAbs.y,
+    debugEndAbs.y
+  );
 
   maybeSetPosition(group, minX, minY);
 
@@ -256,6 +336,15 @@ function layoutFallbackShapeLink(
 
   arrow.vectorPaths = [{ windingRule: "NONZERO", data: arrowPath }];
   maybeSetVectorGeometry(arrow, arrowAbs.x - minX, arrowAbs.y - minY, arrowAbs.w, arrowAbs.h, 0);
+
+  if (debugStart && debugMid && debugEnd) {
+    maybeSetEllipseGeometry(debugStart, debugStartAbs.x - minX, debugStartAbs.y - minY, debugStartAbs.w, debugStartAbs.h);
+    maybeSetEllipseGeometry(debugMid, debugMidAbs.x - minX, debugMidAbs.y - minY, debugMidAbs.w, debugMidAbs.h);
+    maybeSetEllipseGeometry(debugEnd, debugEndAbs.x - minX, debugEndAbs.y - minY, debugEndAbs.w, debugEndAbs.h);
+    debugStart.visible = debugEnabled;
+    debugMid.visible = debugEnabled;
+    debugEnd.visible = debugEnabled;
+  }
 }
 
 function findFallbackChild<T extends SceneNode>(
@@ -314,6 +403,35 @@ function scheduleFallbackSync(): void {
   }, SYNC_THROTTLE_MS);
 }
 
+function ensureFallbackPolling(): void {
+  if (fallbackPollingTimer) {
+    return;
+  }
+  fallbackPollingTimer = setInterval(() => {
+    void syncFallbackLinks();
+  }, POLLING_SYNC_MS);
+}
+
+function applyDebugVisibilityToAllLinks(): void {
+  const links = figma.currentPage.findAll(
+    (node): node is GroupNode => node.type === "GROUP" && node.getPluginData(FALLBACK_LINK_MARK) === "true"
+  );
+  for (const link of links) {
+    const debugStart = findFallbackChild<EllipseNode>(link, "debug-start", "ELLIPSE");
+    const debugMid = findFallbackChild<EllipseNode>(link, "debug-mid", "ELLIPSE");
+    const debugEnd = findFallbackChild<EllipseNode>(link, "debug-end", "ELLIPSE");
+    if (debugStart) {
+      debugStart.visible = debugEnabled;
+    }
+    if (debugMid) {
+      debugMid.visible = debugEnabled;
+    }
+    if (debugEnd) {
+      debugEnd.visible = debugEnabled;
+    }
+  }
+}
+
 function almostEqual(a: number, b: number): boolean {
   return Math.abs(a - b) <= GEOMETRY_EPSILON;
 }
@@ -328,6 +446,13 @@ function maybeSetPosition(node: SceneNode & DimensionAndPositionMixin, x: number
 }
 
 function maybeSetRectGeometry(node: RectangleNode, x: number, y: number, w: number, h: number): void {
+  maybeSetPosition(node, x, y);
+  if (!almostEqual(node.width, w) || !almostEqual(node.height, h)) {
+    node.resize(w, h);
+  }
+}
+
+function maybeSetEllipseGeometry(node: EllipseNode, x: number, y: number, w: number, h: number): void {
   maybeSetPosition(node, x, y);
   if (!almostEqual(node.width, w) || !almostEqual(node.height, h)) {
     node.resize(w, h);

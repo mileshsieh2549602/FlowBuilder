@@ -7,9 +7,16 @@ interface PluginStatusMessage {
     message: string;
   };
 }
+interface PluginDebugStateMessage {
+  type: "debug-state";
+  payload: {
+    enabled: boolean;
+  };
+}
 
 const connectorForm = document.getElementById("connector-form") as HTMLFormElement;
 const connectorStatus = document.getElementById("connectorStatus") as HTMLDivElement;
+const debugToggle = document.getElementById("debugToggle") as HTMLInputElement;
 
 function setStatus(target: HTMLDivElement, kind: StatusKind, message: string): void {
   target.textContent = message;
@@ -35,9 +42,28 @@ connectorForm.addEventListener("submit", (event) => {
   );
 });
 
-window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginStatusMessage }>) => {
+debugToggle.addEventListener("change", () => {
+  parent.postMessage(
+    {
+      pluginMessage: {
+        type: "set-debug",
+        payload: { enabled: debugToggle.checked }
+      }
+    },
+    "*"
+  );
+});
+
+window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginStatusMessage | PluginDebugStateMessage }>) => {
   const pluginMessage = event.data?.pluginMessage;
-  if (!pluginMessage || pluginMessage.type !== "status") {
+  if (!pluginMessage) {
+    return;
+  }
+  if (pluginMessage.type === "debug-state") {
+    debugToggle.checked = pluginMessage.payload.enabled;
+    return;
+  }
+  if (pluginMessage.type !== "status") {
     return;
   }
   setStatus(connectorStatus, pluginMessage.payload.kind, pluginMessage.payload.message);
