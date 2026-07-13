@@ -82,6 +82,7 @@ npm run build
 ## Publishing
 
 See:
+- `PRD_V1.0_IMPLEMENTED_SCOPE.md`
 - `RELEASE_NOTES_v1.0.md`
 - `FIGMA_COMMUNITY_LISTING.md`
 - `SMOKE_TEST_CHECKLIST_v1.0.md`
