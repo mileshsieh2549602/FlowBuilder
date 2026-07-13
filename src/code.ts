@@ -3,6 +3,7 @@ figma.showUI(__html__, { width: 360, height: 300 });
 type PluginRequest = { type: "generate-connector" };
 type HorizontalMagnet = "LEFT" | "RIGHT";
 type FrameLikeNode = SceneNode & DimensionAndPositionMixin;
+type NodeBounds = { x: number; y: number; width: number; height: number };
 
 let previousFrameSelection = new Set<string>();
 let frameSelectionOrder: string[] = [];
@@ -67,13 +68,23 @@ function isFrameOrImage(node: SceneNode): node is FrameLikeNode {
 }
 
 function getAttachPoint(
-  node: SceneNode & DimensionAndPositionMixin,
+  node: FrameLikeNode,
   magnet: HorizontalMagnet
 ): { x: number; y: number } {
+  const bounds = getNodeBoundsInPage(node);
   if (magnet === "LEFT") {
-    return { x: node.x, y: node.y + node.height / 2 };
+    return { x: bounds.x, y: bounds.y + bounds.height / 2 };
   }
-  return { x: node.x + node.width, y: node.y + node.height / 2 };
+  return { x: bounds.x + bounds.width, y: bounds.y + bounds.height / 2 };
+}
+
+function getNodeBoundsInPage(node: FrameLikeNode): NodeBounds {
+  return {
+    x: node.absoluteTransform[0][2],
+    y: node.absoluteTransform[1][2],
+    width: node.width,
+    height: node.height
+  };
 }
 
 async function generateConnectorFromSelection(): Promise<void> {
@@ -85,7 +96,10 @@ async function generateConnectorFromSelection(): Promise<void> {
   updateSelectionOrder();
   const orderedSelection = resolveSelectionByOrder(selected);
   const [sourceNode, targetNode] = orderedSelection;
-  const direction: HorizontalMagnet = targetNode.x >= sourceNode.x ? "RIGHT" : "LEFT";
+  const sourceBounds = getNodeBoundsInPage(sourceNode);
+  const targetBounds = getNodeBoundsInPage(targetNode);
+  const direction: HorizontalMagnet =
+    targetBounds.x + targetBounds.width / 2 >= sourceBounds.x + sourceBounds.width / 2 ? "RIGHT" : "LEFT";
 
   const linkNode = createLinkBetweenNodes(sourceNode, targetNode, direction);
   figma.currentPage.selection = [sourceNode, targetNode, linkNode];
@@ -279,7 +293,10 @@ async function syncFallbackLinks(): Promise<void> {
 
       const startDim = startNode as SceneNode & DimensionAndPositionMixin;
       const endDim = endNode as SceneNode & DimensionAndPositionMixin;
-      const direction: HorizontalMagnet = endDim.x >= startDim.x ? "RIGHT" : "LEFT";
+      const startBounds = getNodeBoundsInPage(startDim);
+      const endBounds = getNodeBoundsInPage(endDim);
+      const direction: HorizontalMagnet =
+        endBounds.x + endBounds.width / 2 >= startBounds.x + startBounds.width / 2 ? "RIGHT" : "LEFT";
       layoutFallbackShapeLink(group, startDim, endDim, direction);
     }
   } finally {
