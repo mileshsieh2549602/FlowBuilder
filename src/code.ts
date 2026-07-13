@@ -342,8 +342,9 @@ function layoutFallbackShapeLink(
     debugEndAbs.y
   );
 
-  maybeSetPosition(wrapper, minX, minY);
-  maybeSetPosition(container, 0, 0);
+  // Keep geometry anchored by the internal frame only.
+  // Group is just an outer wrapper for layer organization.
+  maybeSetPosition(container, minX, minY);
   const containerWidth = Math.max(
     segment1Abs.x + segment1Abs.w,
     segment2Abs.x + segment2Abs.w,
