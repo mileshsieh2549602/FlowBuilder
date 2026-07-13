@@ -34,9 +34,20 @@ figma.on("selectionchange", () => {
   updateSelectionOrder();
 });
 
-figma.on("documentchange", () => {
-  scheduleFallbackSync();
-});
+void initializeDocumentSync();
+
+async function initializeDocumentSync(): Promise<void> {
+  try {
+    // Required in incremental document mode before subscribing to documentchange.
+    await figma.loadAllPagesAsync();
+    figma.on("documentchange", () => {
+      scheduleFallbackSync();
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to initialize document sync.";
+    figma.notify(`Connector sync fallback disabled: ${message}`);
+  }
+}
 
 function isImageNode(node: SceneNode): boolean {
   if (!("fills" in node)) {
