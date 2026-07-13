@@ -1,62 +1,62 @@
-# Flow Builder for Figma
+# Flow Builder for Figma (v1.0)
 
-Flow Builder is a Figma plugin focused on reducing repetitive work for UI/UX teams when building:
+Flow Builder is a Figma plugin for quickly creating stable flow connectors between two screens.
 
-- Wireframe Flow
-- User Flow
-- UI Flow
+v1.0 is focused on a **Connector-first workflow** and intentionally keeps scope small for reliability.
 
-The plugin follows **PRD V1.0** and is optimized for the flow:
-Select 2 nodes -> Generate connector + arrow -> Click connector -> Generate default None node -> Choose node type -> Input text.
+## What v1.0 does
 
-## Features
+1. **Connector-only generation**
+   - Select exactly 2 nodes (`Frame` or image-filled layer)
+   - Click **Generate Connector**
+   - Plugin draws an orthogonal connector with arrow terminal
 
-1. **Selection detection (FR-001)**
-   - Detects selection of exactly two nodes
-   - Supports `Frame` and image nodes (any node with image fill)
+2. **Selection-order direction**
+   - First selected node = source
+   - Second selected node = target
+   - Arrow direction follows source -> target
 
-2. **Connector + Arrow generation (FR-002)**
-   - Generates a connector line between the two selected nodes
-   - Supports arrow direction control (left / right)
-   - Supports line anchor side (top / right / bottom / left)
+3. **Stable geometry mode**
+   - Uses deterministic elbow path calculation
+   - Endpoint calculation uses absolute page coordinates
+   - Connector updates when connected frames move/resize
+   - Throttled incremental sync to reduce drag jitter
 
-3. **Node types (FR-003 ~ FR-006)**
-   - `None`: rounded rectangle (default)
-   - `Process`: rectangle
-   - `Decision`: diamond
-   - All node types support text input (default text: `Text`)
+4. **Optional debug mode**
+   - Toggle in UI: `Debug mode (show endpoint/path nodes)`
+   - Shows start/mid/end markers for diagnostics only
 
-4. **Auto alignment and spacing (FR-007, FR-008)**
-   - Aligns connected nodes on the same center axis based on line direction
-   - Applies fixed 120px spacing between the two selected nodes
+## Current scope (intentional)
 
-5. **PRD color system in plugin UI**
-   - Primary button: `#383838`, text `#FFFFFF`
-   - Secondary button: border `#383838`, bg `#FFFFFF`, text `#383838`
-   - Title: `#383838`, body text: `#6E6E6E`, window bg: `#FCFCFC`
+- No node-generation UI in v1.0 (None/Process/Decision temporarily removed)
+- No auto spacing/alignment of selected frames (user controls layout)
+- No viewport auto-zoom side effects when generating connectors
 
 ## Project Structure
 
 ```text
 manifest.json
 src/
-  code.ts      # Figma plugin runtime
-  ui.ts        # UI logic
-  ui.html      # UI layout
+  code.ts       # Figma plugin runtime
+  ui.ts         # UI logic
+  ui.html       # UI layout
+scripts/
+  build-ui-html.mjs
 dist/
-  code.js      # built plugin runtime
-  ui.js        # built UI script
+  code.js       # built plugin runtime
+  ui.js         # built UI script (embedded into dist/ui.html)
+  ui.html       # built plugin UI entry
 ```
 
 ## Development
 
-### 1) Install dependencies
+### Install
 
 ```bash
 npm install
 ```
 
-### 2) Build
+### Build
 
 ```bash
 npm run build
@@ -64,19 +64,24 @@ npm run build
 
 ## Load into Figma (Development)
 
-1. Open **Figma Desktop**.
-2. Go to **Plugins → Development → Import plugin from manifest...**
-3. Select this project's `manifest.json`.
-4. Run the plugin from **Plugins → Development → Flow Builder for Figma**.
+1. Open **Figma Desktop**
+2. Go to **Plugins -> Development -> Import plugin from manifest...**
+3. Select this project's `manifest.json`
+4. Run **Flow Builder for Figma**
 
-## Publish to Figma Community (Checklist)
+## Troubleshooting
 
-Before publishing, verify:
+### "Unable to load code" / `ENOENT ... dist/code.js`
+- Run `npm run build` in your local project folder
+- Re-import manifest from the same folder
+- Remove old dev plugin entries and restart Figma Desktop
 
-- Plugin icon and cover image assets are prepared
-- `manifest.json` metadata (`name`, `id`) is finalized
-- Error states are handled and validated
-- README/description/screenshots are ready for listing
-- Plugin behavior is tested on realistic flow documents
+### `documentchange handler in incremental mode` error
+- v1.0 handles this by calling `figma.loadAllPagesAsync()` before binding documentchange
 
-Then use Figma's plugin publishing flow from your developer dashboard.
+## Publishing
+
+See:
+- `RELEASE_NOTES_v1.0.md`
+- `FIGMA_COMMUNITY_LISTING.md`
+- `SMOKE_TEST_CHECKLIST_v1.0.md`
