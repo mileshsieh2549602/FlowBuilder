@@ -125,29 +125,7 @@ function createLinkBetweenNodes(
   targetNode: SceneNode & DimensionAndPositionMixin,
   direction: HorizontalMagnet
 ): SceneNode {
-  const startMagnet: HorizontalMagnet = direction === "RIGHT" ? "RIGHT" : "LEFT";
-  const endMagnet: HorizontalMagnet = direction === "RIGHT" ? "LEFT" : "RIGHT";
-
-  if (typeof figma.createConnector === "function") {
-    try {
-      const connector = figma.createConnector();
-      connector.name = "Flow Connector";
-      connector.connectorStart = { endpointNodeId: sourceNode.id, magnet: startMagnet };
-      connector.connectorEnd = { endpointNodeId: targetNode.id, magnet: endMagnet };
-      connector.connectorLineType = "ELBOWED";
-      connector.strokeWeight = 3;
-      connector.cornerRadius = 14;
-      connector.fills = [];
-      connector.strokes = [{ type: "SOLID", color: hexToRgb("#383838") }];
-      connector.connectorStartStrokeCap = "NONE";
-      connector.connectorEndStrokeCap = "ARROW_LINES";
-      figma.currentPage.appendChild(connector);
-      return connector;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Connector API unavailable.";
-      figma.notify(`Connector API unavailable, switched to shape line. ${message}`);
-    }
-  }
+  // Always use deterministic shape rendering to guarantee endpoint placement.
   return createFallbackShapeLink(sourceNode, targetNode, direction);
 }
 
