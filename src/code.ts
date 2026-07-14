@@ -422,23 +422,25 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
       node.name = "Process Node";
       node.layoutMode = "NONE";
       node.cornerRadius = 0;
-      node.resize(88, 88);
+      node.resize(180, 180);
       node.fills = [];
       node.strokes = [];
 
       const processShape = getOrCreateProcessShape(node);
       processShape.visible = true;
-      processShape.vectorPaths = [{ windingRule: "NONZERO", data: "M 44 0 L 88 44 L 44 88 L 0 44 Z" }];
+      processShape.vectorPaths = [{ windingRule: "NONZERO", data: "M 90 0 L 180 90 L 90 180 L 0 90 Z" }];
       processShape.fills = [{ type: "SOLID", color: hexToRgb("#FCFCFC") }];
       processShape.strokes = [{ type: "SOLID", color: hexToRgb("#383838") }];
       processShape.strokeWeight = 1.5;
-      processShape.resize(88, 88);
+      processShape.resize(180, 180);
       processShape.x = 0;
       processShape.y = 0;
       processShape.rotation = 0;
 
       label.rotation = 0;
-      label.textAutoResize = "WIDTH_AND_HEIGHT";
+      label.textAlignHorizontal = "CENTER";
+      label.textAutoResize = "HEIGHT";
+      label.resize(110, Math.max(label.height, 16));
       label.x = node.width / 2 - label.width / 2;
       label.y = node.height / 2 - label.height / 2;
       break;
