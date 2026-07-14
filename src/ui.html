@@ -117,7 +117,7 @@
 
       .status {
         min-height: 16px;
-        margin-top: 6px;
+        margin-top: 8px;
         font-size: 11px;
         line-height: 16px;
       }
@@ -179,12 +179,7 @@
       <div class="header">
         <h1>Flow Builder</h1>
       </div>
-      <p class="description">Select 2 Frame/Image nodes, then generate a connector.</p>
-
-      <form id="connector-form">
-        <button class="primary" type="submit">Generate Connector</button>
-        <div id="connectorStatus" class="status"></div>
-      </form>
+      <p class="description">Select one Flow Node and change its type.</p>
 
       <label class="debug-toggle" for="debugToggle">
         <input id="debugToggle" type="checkbox" />
@@ -199,15 +194,16 @@
           <button type="button" id="nodeTypeStartEnd">Start/End</button>
           <button type="button" id="nodeTypeYesNo">Y/N</button>
         </div>
+        <div id="panelStatus" class="status"></div>
       </div>
 
       <div class="section">
         <ol class="instruction">
-          <li>Select 2 Frame or Image nodes.</li>
-          <li>Click "Generate Connector".</li>
-          <li>Connector line and arrow are generated to match frame endpoints.</li>
+          <li>Select one node created from a connector.</li>
+          <li>Click any Node Type button.</li>
+          <li>The node updates to your selected type.</li>
         </ol>
-        <p class="caption">Frame spacing and alignment are fully controlled by user.</p>
+        <p class="caption">Connector generation is now automatic when 2 frames/images are selected.</p>
       </div>
     </div>
 

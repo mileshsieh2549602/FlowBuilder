@@ -14,8 +14,7 @@ interface PluginDebugStateMessage {
   };
 }
 
-const connectorForm = document.getElementById("connector-form") as HTMLFormElement;
-const connectorStatus = document.getElementById("connectorStatus") as HTMLDivElement;
+const panelStatus = document.getElementById("panelStatus") as HTMLDivElement;
 const debugToggle = document.getElementById("debugToggle") as HTMLInputElement;
 const nodeTypeNone = document.getElementById("nodeTypeNone") as HTMLButtonElement;
 const nodeTypeProcess = document.getElementById("nodeTypeProcess") as HTMLButtonElement;
@@ -33,19 +32,6 @@ function clearStatus(target: HTMLDivElement): void {
   target.classList.remove("success", "error");
 }
 
-connectorForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  clearStatus(connectorStatus);
-  parent.postMessage(
-    {
-      pluginMessage: {
-        type: "generate-connector"
-      }
-    },
-    "*"
-  );
-});
-
 debugToggle.addEventListener("change", () => {
   parent.postMessage(
     {
@@ -59,6 +45,7 @@ debugToggle.addEventListener("change", () => {
 });
 
 function sendNodeType(nodeType: "none" | "process" | "start-end" | "yes-no"): void {
+  clearStatus(panelStatus);
   parent.postMessage(
     {
       pluginMessage: {
@@ -87,5 +74,5 @@ window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginStatusMessage | 
   if (pluginMessage.type !== "status") {
     return;
   }
-  setStatus(connectorStatus, pluginMessage.payload.kind, pluginMessage.payload.message);
+  setStatus(panelStatus, pluginMessage.payload.kind, pluginMessage.payload.message);
 };
