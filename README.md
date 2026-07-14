@@ -8,7 +8,8 @@ v1.0 is focused on a **Connector-first workflow** and intentionally keeps scope 
 
 1. **Connector-only generation**
    - Select exactly 2 nodes (`Frame` or image-filled layer)
-   - Click **Generate Connector**
+   - Connector is auto-generated immediately when selection reaches 2 nodes
+   - `Generate Connector` button remains as manual fallback
    - Plugin draws an orthogonal connector with arrow terminal
 
 2. **Selection-order direction**

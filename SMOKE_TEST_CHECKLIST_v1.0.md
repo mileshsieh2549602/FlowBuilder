@@ -13,7 +13,8 @@ Use this checklist before tagging/releasing/publishing.
 
 ## B. Core generation
 
-- [ ] Select exactly 2 frames -> `Generate Connector` succeeds
+- [ ] Select exactly 2 frames -> connector auto-generates
+- [ ] Manual `Generate Connector` button still works as fallback
 - [ ] Selection-order left->right produces rightward arrow
 - [ ] Selection-order right->left produces leftward arrow
 - [ ] Generated path is orthogonal (right-angle style)

@@ -1,7 +1,7 @@
 # Flow Builder for Figma - PRD (Implemented Scope)
 
 Version: 1.0 (Implemented)  
-Last updated: 2026-07-13
+Last updated: 2026-07-14
 
 ---
 
@@ -23,7 +23,7 @@ When building User Flow / UI Flow in Figma, teams repeatedly spend time on:
 ### 1.4 Solution (Implemented)
 In v1.0 implemented scope, users:
 1. Select 2 frames (or image-filled layers)
-2. Click **Generate Connector**
+2. Connector is generated automatically when selection reaches 2 nodes
 3. Get a stable orthogonal connector with arrow direction based on selection order
 
 The connector stays attached when connected frames move/resize.
@@ -51,7 +51,7 @@ The connector stays attached when connected frames move/resize.
 
 Open Plugin  
 -> Select 2 Frames / Image-filled layers  
--> Click **Generate Connector**  
+-> Connector auto-generates  
 -> Connector is generated (orthogonal path + arrow)  
 -> Move/resize frames  
 -> Connector updates and remains attached
@@ -65,6 +65,7 @@ Open Plugin
 - Supported node types:
   - Frame
   - Any node with image fill
+- When selection reaches exactly 2 supported nodes, plugin auto-generates connector
 
 ### FR-002 Connector Generation
 - Plugin must generate one connector per action
@@ -99,7 +100,7 @@ Open Plugin
 
 ## 6. UI/Interaction Requirements (Implemented)
 
-- Primary CTA: **Generate Connector**
+- Primary CTA: **Generate Connector** (manual fallback)
 - Inline status feedback below button:
   - Success
   - Error

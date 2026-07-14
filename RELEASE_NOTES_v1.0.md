@@ -6,7 +6,8 @@ v1.0 delivers a connector-focused release aimed at reliability and predictable b
 
 ## Highlights
 
-- Connector-first workflow with a single action (`Generate Connector`)
+- Connector-first workflow with auto-generate on 2-node selection
+- `Generate Connector` retained as manual fallback action
 - Selection-order-based direction (source -> target)
 - Stable orthogonal connector path rendering
 - Connector follows frame movement and resizing
