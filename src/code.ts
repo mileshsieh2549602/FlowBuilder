@@ -289,7 +289,7 @@ async function insertDefaultNodeOnConnector(connector: GroupNode): Promise<void>
   const centerY = (startPoint.y + endPoint.y) / 2;
 
   const node = createBaseNodeAt(centerX, centerY);
-  applyNodeType(node, "none", true);
+  applyNodeType(node, "none", { mode: "default" });
 
   createLinkBetweenNodes(startFrame, node, direction);
   createLinkBetweenNodes(node, endFrame, direction);
@@ -306,7 +306,7 @@ async function applyNodeTypeToSelection(nodeType: NodeType): Promise<void> {
   if (selected.type !== "FRAME" || selected.getPluginData(FLOW_NODE_MARK) !== "true") {
     throw new Error("Selected object is not a Flow Node.");
   }
-  applyNodeType(selected, nodeType, true);
+  applyNodeType(selected, nodeType, { mode: "preserve" });
 }
 
 function createBaseNodeAt(centerX: number, centerY: number): FrameNode {
@@ -341,7 +341,7 @@ function getOrCreateNodeLabel(node: FrameNode): TextNode {
   return label;
 }
 
-function applyNodeType(node: FrameNode, nodeType: NodeType, resetText: boolean): void {
+function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode: "default" | "preserve" }): void {
   node.layoutMode = "NONE";
   node.primaryAxisSizingMode = "AUTO";
   node.counterAxisSizingMode = "AUTO";
@@ -359,7 +359,12 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, resetText: boolean):
     "start-end": "Text",
     "yes-no": "Y/N"
   };
-  if (resetText) {
+  if (textBehavior.mode === "default") {
+    label.characters = defaults[nodeType];
+  } else if (nodeType === "yes-no") {
+    // Y/N node has a constrained format and always resets text.
+    label.characters = defaults[nodeType];
+  } else if (!label.characters || label.characters.trim().length === 0) {
     label.characters = defaults[nodeType];
   }
 
