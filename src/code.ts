@@ -27,6 +27,7 @@ const FALLBACK_CONTAINER_ROLE = "flow-builder-container";
 const FALLBACK_DEBUG_ENABLED = "flow-builder-debug-enabled";
 const FLOW_NODE_MARK = "flow-builder-node";
 const FLOW_NODE_LABEL_ROLE = "flow-builder-node-label";
+const FLOW_NODE_PROCESS_SHAPE_ROLE = "flow-builder-process-shape";
 const SYNC_THROTTLE_MS = 33;
 const GEOMETRY_EPSILON = 0.25;
 const POLLING_SYNC_MS = 250;
@@ -341,6 +342,29 @@ function getOrCreateNodeLabel(node: FrameNode): TextNode {
   return label;
 }
 
+function getOrCreateProcessShape(node: FrameNode): VectorNode {
+  const existing = node.findChild(
+    (child): child is VectorNode => child.type === "VECTOR" && child.getPluginData(FLOW_NODE_PROCESS_SHAPE_ROLE) === "true"
+  );
+  if (existing) {
+    return existing;
+  }
+  const shape = figma.createVector();
+  shape.name = "Process Diamond";
+  shape.setPluginData(FLOW_NODE_PROCESS_SHAPE_ROLE, "true");
+  node.insertChild(0, shape);
+  return shape;
+}
+
+function hideProcessShape(node: FrameNode): void {
+  const shape = node.findChild(
+    (child): child is VectorNode => child.type === "VECTOR" && child.getPluginData(FLOW_NODE_PROCESS_SHAPE_ROLE) === "true"
+  );
+  if (shape) {
+    shape.visible = false;
+  }
+}
+
 function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode: "default" | "preserve" }): void {
   node.layoutMode = "NONE";
   node.primaryAxisSizingMode = "AUTO";
@@ -371,6 +395,7 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
   switch (nodeType) {
     case "none": {
       node.name = "None Node";
+      hideProcessShape(node);
       node.layoutMode = "VERTICAL";
       node.primaryAxisSizingMode = "AUTO";
       node.counterAxisSizingMode = "FIXED";
@@ -383,6 +408,9 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
       node.paddingBottom = 10;
       node.cornerRadius = 10;
       node.resize(132, 52);
+      node.fills = [{ type: "SOLID", color: hexToRgb("#FCFCFC") }];
+      node.strokes = [{ type: "SOLID", color: hexToRgb("#383838") }];
+      node.strokeWeight = 1.5;
       label.rotation = 0;
       label.textAutoResize = "HEIGHT";
       label.resize(node.width - node.paddingLeft - node.paddingRight, Math.max(label.height, 16));
@@ -392,10 +420,24 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
     }
     case "process": {
       node.name = "Process Node";
+      node.layoutMode = "NONE";
       node.cornerRadius = 0;
       node.resize(88, 88);
-      node.rotation = 45;
-      label.rotation = -45;
+      node.fills = [];
+      node.strokes = [];
+
+      const processShape = getOrCreateProcessShape(node);
+      processShape.visible = true;
+      processShape.vectorPaths = [{ windingRule: "NONZERO", data: "M 44 0 L 88 44 L 44 88 L 0 44 Z" }];
+      processShape.fills = [{ type: "SOLID", color: hexToRgb("#FCFCFC") }];
+      processShape.strokes = [{ type: "SOLID", color: hexToRgb("#383838") }];
+      processShape.strokeWeight = 1.5;
+      processShape.resize(88, 88);
+      processShape.x = 0;
+      processShape.y = 0;
+      processShape.rotation = 0;
+
+      label.rotation = 0;
       label.textAutoResize = "WIDTH_AND_HEIGHT";
       label.x = node.width / 2 - label.width / 2;
       label.y = node.height / 2 - label.height / 2;
@@ -403,8 +445,12 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
     }
     case "start-end": {
       node.name = "Start/End Node";
+      hideProcessShape(node);
       node.cornerRadius = 999;
       node.resize(132, 52);
+      node.fills = [{ type: "SOLID", color: hexToRgb("#FCFCFC") }];
+      node.strokes = [{ type: "SOLID", color: hexToRgb("#383838") }];
+      node.strokeWeight = 1.5;
       label.rotation = 0;
       label.textAutoResize = "WIDTH_AND_HEIGHT";
       label.x = node.width / 2 - label.width / 2;
@@ -413,8 +459,12 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
     }
     case "yes-no": {
       node.name = "Y/N Node";
+      hideProcessShape(node);
       node.cornerRadius = 6;
       node.resize(52, 52);
+      node.fills = [{ type: "SOLID", color: hexToRgb("#FCFCFC") }];
+      node.strokes = [{ type: "SOLID", color: hexToRgb("#383838") }];
+      node.strokeWeight = 1.5;
       label.rotation = 0;
       label.textAutoResize = "WIDTH_AND_HEIGHT";
       label.x = node.width / 2 - label.width / 2;
