@@ -157,6 +157,21 @@
         margin: 0;
       }
 
+      .node-types {
+        margin-top: 10px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .node-types button {
+        border: 1px solid #383838;
+        background: #fff;
+        color: #383838;
+        font-size: 12px;
+        padding: 8px 10px;
+      }
+
     </style>
   </head>
   <body>
@@ -175,6 +190,16 @@
         <input id="debugToggle" type="checkbox" />
         Debug mode (show endpoint/path nodes)
       </label>
+
+      <div class="section">
+        <p class="caption">Node Type (select one Flow Node first)</p>
+        <div class="node-types">
+          <button type="button" id="nodeTypeNone">None Node</button>
+          <button type="button" id="nodeTypeProcess">Process</button>
+          <button type="button" id="nodeTypeStartEnd">Start/End</button>
+          <button type="button" id="nodeTypeYesNo">Y/N</button>
+        </div>
+      </div>
 
       <div class="section">
         <ol class="instruction">

@@ -1,6 +1,10 @@
 figma.showUI(__html__, { width: 360, height: 300 });
 
-type PluginRequest = { type: "generate-connector" } | { type: "set-debug"; payload: { enabled: boolean } };
+type NodeType = "none" | "process" | "start-end" | "yes-no";
+type PluginRequest =
+  | { type: "generate-connector" }
+  | { type: "set-debug"; payload: { enabled: boolean } }
+  | { type: "set-node-type"; payload: { nodeType: NodeType } };
 type HorizontalMagnet = "LEFT" | "RIGHT";
 type FrameLikeNode = SceneNode & DimensionAndPositionMixin;
 type NodeBounds = { x: number; y: number; width: number; height: number };
@@ -22,6 +26,7 @@ const FALLBACK_ROLE_KEY = "flow-builder-fallback-role";
 const FALLBACK_CONTAINER_ROLE = "flow-builder-container";
 const FALLBACK_DEBUG_ENABLED = "flow-builder-debug-enabled";
 const FLOW_NODE_MARK = "flow-builder-node";
+const FLOW_NODE_LABEL_ROLE = "flow-builder-node-label";
 const SYNC_THROTTLE_MS = 33;
 const GEOMETRY_EPSILON = 0.25;
 const POLLING_SYNC_MS = 250;
@@ -40,6 +45,11 @@ figma.ui.onmessage = async (msg: PluginRequest) => {
       applyDebugVisibilityToAllLinks();
       emitDebugState();
       sendStatus("success", debugEnabled ? "Debug ON" : "Debug OFF");
+      return;
+    }
+    if (msg.type === "set-node-type") {
+      await applyNodeTypeToSelection(msg.payload.nodeType);
+      sendStatus("success", "Node updated");
       return;
     }
     throw new Error("Unsupported command.");
@@ -278,42 +288,140 @@ async function insertDefaultNodeOnConnector(connector: GroupNode): Promise<void>
   const centerX = (startPoint.x + endPoint.x) / 2;
   const centerY = (startPoint.y + endPoint.y) / 2;
 
-  const node = figma.createFrame();
-  node.name = "None Node";
-  node.layoutMode = "VERTICAL";
-  node.primaryAxisSizingMode = "AUTO";
-  node.counterAxisSizingMode = "FIXED";
-  node.primaryAxisAlignItems = "CENTER";
-  node.counterAxisAlignItems = "CENTER";
-  node.itemSpacing = 0;
-  node.paddingLeft = 12;
-  node.paddingRight = 12;
-  node.paddingTop = 10;
-  node.paddingBottom = 10;
-  node.resize(132, 52);
-  node.cornerRadius = 10;
-  node.fills = [{ type: "SOLID", color: hexToRgb("#FCFCFC") }];
-  node.strokes = [{ type: "SOLID", color: hexToRgb("#383838") }];
-  node.strokeWeight = 1.5;
-  node.setPluginData(FLOW_NODE_MARK, "none");
-  node.x = centerX - node.width / 2;
-  node.y = centerY - node.height / 2;
-  figma.currentPage.appendChild(node);
-
-  const label = figma.createText();
-  label.fontName = FONT_REGULAR;
-  label.characters = "Text";
-  label.fontSize = 12;
-  label.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
-  label.textAlignHorizontal = "CENTER";
-  label.textAutoResize = "HEIGHT";
-  label.resize(node.width - node.paddingLeft - node.paddingRight, label.height);
-  node.appendChild(label);
+  const node = createBaseNodeAt(centerX, centerY);
+  applyNodeType(node, "none", true);
 
   createLinkBetweenNodes(startFrame, node, direction);
   createLinkBetweenNodes(node, endFrame, direction);
   connector.remove();
   figma.currentPage.selection = [node];
+}
+
+async function applyNodeTypeToSelection(nodeType: NodeType): Promise<void> {
+  await figma.loadFontAsync(FONT_REGULAR);
+  if (figma.currentPage.selection.length !== 1) {
+    throw new Error("Select exactly one Node to change type.");
+  }
+  const selected = figma.currentPage.selection[0];
+  if (selected.type !== "FRAME" || selected.getPluginData(FLOW_NODE_MARK) !== "true") {
+    throw new Error("Selected object is not a Flow Node.");
+  }
+  applyNodeType(selected, nodeType, true);
+}
+
+function createBaseNodeAt(centerX: number, centerY: number): FrameNode {
+  const node = figma.createFrame();
+  node.name = "Flow Node";
+  node.fills = [{ type: "SOLID", color: hexToRgb("#FCFCFC") }];
+  node.strokes = [{ type: "SOLID", color: hexToRgb("#383838") }];
+  node.strokeWeight = 1.5;
+  node.layoutMode = "NONE";
+  node.clipsContent = false;
+  figma.currentPage.appendChild(node);
+  node.x = centerX - 66;
+  node.y = centerY - 26;
+  return node;
+}
+
+function getOrCreateNodeLabel(node: FrameNode): TextNode {
+  const existing = node.findChild(
+    (child): child is TextNode => child.type === "TEXT" && child.getPluginData(FLOW_NODE_LABEL_ROLE) === "true"
+  );
+  if (existing) {
+    return existing;
+  }
+  const label = figma.createText();
+  label.fontName = FONT_REGULAR;
+  label.fontSize = 12;
+  label.textAlignHorizontal = "CENTER";
+  label.textAutoResize = "WIDTH_AND_HEIGHT";
+  label.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
+  label.setPluginData(FLOW_NODE_LABEL_ROLE, "true");
+  node.appendChild(label);
+  return label;
+}
+
+function applyNodeType(node: FrameNode, nodeType: NodeType, resetText: boolean): void {
+  node.layoutMode = "NONE";
+  node.primaryAxisSizingMode = "AUTO";
+  node.counterAxisSizingMode = "AUTO";
+  node.paddingLeft = 0;
+  node.paddingRight = 0;
+  node.paddingTop = 0;
+  node.paddingBottom = 0;
+  node.itemSpacing = 0;
+  node.rotation = 0;
+
+  const label = getOrCreateNodeLabel(node);
+  const defaults: Record<NodeType, string> = {
+    none: "Text",
+    process: "Text",
+    "start-end": "Text",
+    "yes-no": "Y/N"
+  };
+  if (resetText) {
+    label.characters = defaults[nodeType];
+  }
+
+  switch (nodeType) {
+    case "none": {
+      node.name = "None Node";
+      node.layoutMode = "VERTICAL";
+      node.primaryAxisSizingMode = "AUTO";
+      node.counterAxisSizingMode = "FIXED";
+      node.primaryAxisAlignItems = "CENTER";
+      node.counterAxisAlignItems = "CENTER";
+      node.itemSpacing = 0;
+      node.paddingLeft = 12;
+      node.paddingRight = 12;
+      node.paddingTop = 10;
+      node.paddingBottom = 10;
+      node.cornerRadius = 10;
+      node.resize(132, 52);
+      label.rotation = 0;
+      label.textAutoResize = "HEIGHT";
+      label.resize(node.width - node.paddingLeft - node.paddingRight, Math.max(label.height, 16));
+      label.x = node.paddingLeft;
+      label.y = node.height / 2 - label.height / 2;
+      break;
+    }
+    case "process": {
+      node.name = "Process Node";
+      node.cornerRadius = 0;
+      node.resize(88, 88);
+      node.rotation = 45;
+      label.rotation = -45;
+      label.textAutoResize = "WIDTH_AND_HEIGHT";
+      label.x = node.width / 2 - label.width / 2;
+      label.y = node.height / 2 - label.height / 2;
+      break;
+    }
+    case "start-end": {
+      node.name = "Start/End Node";
+      node.cornerRadius = 999;
+      node.resize(132, 52);
+      label.rotation = 0;
+      label.textAutoResize = "WIDTH_AND_HEIGHT";
+      label.x = node.width / 2 - label.width / 2;
+      label.y = node.height / 2 - label.height / 2;
+      break;
+    }
+    case "yes-no": {
+      node.name = "Y/N Node";
+      node.cornerRadius = 6;
+      node.resize(52, 52);
+      label.rotation = 0;
+      label.textAutoResize = "WIDTH_AND_HEIGHT";
+      label.x = node.width / 2 - label.width / 2;
+      label.y = node.height / 2 - label.height / 2;
+      break;
+    }
+    default:
+      break;
+  }
+
+  node.setPluginData(FLOW_NODE_MARK, "true");
+  node.setPluginData("flow-builder-node-type", nodeType);
 }
 
 function createFallbackShapeLink(

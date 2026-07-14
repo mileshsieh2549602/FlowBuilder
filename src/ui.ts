@@ -17,6 +17,10 @@ interface PluginDebugStateMessage {
 const connectorForm = document.getElementById("connector-form") as HTMLFormElement;
 const connectorStatus = document.getElementById("connectorStatus") as HTMLDivElement;
 const debugToggle = document.getElementById("debugToggle") as HTMLInputElement;
+const nodeTypeNone = document.getElementById("nodeTypeNone") as HTMLButtonElement;
+const nodeTypeProcess = document.getElementById("nodeTypeProcess") as HTMLButtonElement;
+const nodeTypeStartEnd = document.getElementById("nodeTypeStartEnd") as HTMLButtonElement;
+const nodeTypeYesNo = document.getElementById("nodeTypeYesNo") as HTMLButtonElement;
 
 function setStatus(target: HTMLDivElement, kind: StatusKind, message: string): void {
   target.textContent = message;
@@ -53,6 +57,23 @@ debugToggle.addEventListener("change", () => {
     "*"
   );
 });
+
+function sendNodeType(nodeType: "none" | "process" | "start-end" | "yes-no"): void {
+  parent.postMessage(
+    {
+      pluginMessage: {
+        type: "set-node-type",
+        payload: { nodeType }
+      }
+    },
+    "*"
+  );
+}
+
+nodeTypeNone.addEventListener("click", () => sendNodeType("none"));
+nodeTypeProcess.addEventListener("click", () => sendNodeType("process"));
+nodeTypeStartEnd.addEventListener("click", () => sendNodeType("start-end"));
+nodeTypeYesNo.addEventListener("click", () => sendNodeType("yes-no"));
 
 window.onmessage = (event: MessageEvent<{ pluginMessage?: PluginStatusMessage | PluginDebugStateMessage }>) => {
   const pluginMessage = event.data?.pluginMessage;
