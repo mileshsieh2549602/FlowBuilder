@@ -280,6 +280,16 @@ async function insertDefaultNodeOnConnector(connector: GroupNode): Promise<void>
 
   const node = figma.createFrame();
   node.name = "None Node";
+  node.layoutMode = "VERTICAL";
+  node.primaryAxisSizingMode = "AUTO";
+  node.counterAxisSizingMode = "FIXED";
+  node.primaryAxisAlignItems = "CENTER";
+  node.counterAxisAlignItems = "CENTER";
+  node.itemSpacing = 0;
+  node.paddingLeft = 12;
+  node.paddingRight = 12;
+  node.paddingTop = 10;
+  node.paddingBottom = 10;
   node.resize(132, 52);
   node.cornerRadius = 10;
   node.fills = [{ type: "SOLID", color: hexToRgb("#FCFCFC") }];
@@ -295,10 +305,10 @@ async function insertDefaultNodeOnConnector(connector: GroupNode): Promise<void>
   label.characters = "Text";
   label.fontSize = 12;
   label.fills = [{ type: "SOLID", color: hexToRgb("#383838") }];
-  label.textAutoResize = "WIDTH_AND_HEIGHT";
+  label.textAlignHorizontal = "CENTER";
+  label.textAutoResize = "HEIGHT";
+  label.resize(node.width - node.paddingLeft - node.paddingRight, label.height);
   node.appendChild(label);
-  label.x = node.width / 2 - label.width / 2;
-  label.y = node.height / 2 - label.height / 2;
 
   createLinkBetweenNodes(startFrame, node, direction);
   createLinkBetweenNodes(node, endFrame, direction);
