@@ -109,11 +109,15 @@ function isImageNode(node: SceneNode): boolean {
   return node.fills.some((fill) => fill.type === "IMAGE");
 }
 
+function isAutoLayoutNode(node: SceneNode): boolean {
+  return "layoutMode" in node && node.layoutMode !== "NONE";
+}
+
 function isFrameOrImage(node: SceneNode): node is FrameLikeNode {
   if (!("x" in node) || !("width" in node)) {
     return false;
   }
-  return node.type === "FRAME" || isImageNode(node);
+  return node.type === "FRAME" || isImageNode(node) || isAutoLayoutNode(node);
 }
 
 function getAttachPoint(
@@ -144,7 +148,7 @@ async function generateConnectorFromSelection(options?: { selected?: FrameLikeNo
   const notify = options?.notify ?? true;
   const selected = options?.selected ?? figma.currentPage.selection.filter((node) => isFrameOrImage(node));
   if (selected.length !== 2) {
-    throw new Error("Please select exactly 2 Frame/Image nodes.");
+    throw new Error("Please select exactly 2 Frame/Image/Auto Layout nodes.");
   }
 
   updateSelectionOrder();
