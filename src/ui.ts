@@ -24,6 +24,13 @@ interface PluginConnectorSideStateMessage {
   type: "connector-side-state";
   payload: ConnectorPreferencePayload;
 }
+interface PluginConnectorSelectionStateMessage {
+  type: "connector-selection-state";
+  payload: {
+    sourceSelected: boolean;
+    targetSelected: boolean;
+  };
+}
 interface PluginNodeTypeStateMessage {
   type: "node-type-state";
   payload: {
@@ -33,6 +40,8 @@ interface PluginNodeTypeStateMessage {
 }
 
 const panelStatus = document.getElementById("panelStatus") as HTMLDivElement;
+const sourceNodeBox = document.getElementById("sourceNodeBox") as HTMLDivElement;
+const targetNodeBox = document.getElementById("targetNodeBox") as HTMLDivElement;
 const sideButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".side-btn"));
 const nodeTypeNone = document.getElementById("nodeTypeNone") as HTMLButtonElement;
 const nodeTypeProcess = document.getElementById("nodeTypeProcess") as HTMLButtonElement;
@@ -46,6 +55,8 @@ const connectorPreference: ConnectorPreferencePayload = {
 };
 let nodeTypeEnabled = false;
 let activeNodeType: NodeType | null = null;
+let sourceSelected = false;
+let targetSelected = false;
 
 function setStatus(target: HTMLDivElement, kind: StatusKind, message: string): void {
   target.textContent = message;
@@ -68,6 +79,11 @@ function updateSideButtonState(): void {
     const active = endpoint === "source" ? connectorPreference.sourceSide === side : connectorPreference.targetSide === side;
     button.classList.toggle("active", active);
   });
+}
+
+function updateConnectorNodeBoxState(): void {
+  sourceNodeBox.classList.toggle("active", sourceSelected);
+  targetNodeBox.classList.toggle("active", targetSelected);
 }
 
 function sendConnectorPreference(): void {
@@ -155,11 +171,17 @@ sideButtons.forEach((button) => {
 });
 
 updateSideButtonState();
+updateConnectorNodeBoxState();
 updateNodeTypeVisualState();
 
 window.onmessage = (
   event: MessageEvent<{
-    pluginMessage?: PluginStatusMessage | PluginDebugStateMessage | PluginConnectorSideStateMessage | PluginNodeTypeStateMessage;
+    pluginMessage?:
+      | PluginStatusMessage
+      | PluginDebugStateMessage
+      | PluginConnectorSideStateMessage
+      | PluginConnectorSelectionStateMessage
+      | PluginNodeTypeStateMessage;
   }>
 ) => {
   const pluginMessage = event.data?.pluginMessage;
@@ -170,6 +192,12 @@ window.onmessage = (
     connectorPreference.sourceSide = pluginMessage.payload.sourceSide;
     connectorPreference.targetSide = pluginMessage.payload.targetSide;
     updateSideButtonState();
+    return;
+  }
+  if (pluginMessage.type === "connector-selection-state") {
+    sourceSelected = pluginMessage.payload.sourceSelected;
+    targetSelected = pluginMessage.payload.targetSelected;
+    updateConnectorNodeBoxState();
     return;
   }
   if (pluginMessage.type === "node-type-state") {

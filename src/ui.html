@@ -106,15 +106,20 @@
         top: 24px;
         width: 40px;
         height: 40px;
-        border: 1px solid #96c6fe;
+        border: 1px solid #969696;
         border-radius: 3px;
-        background: #ccedfe;
+        background: #ffffff;
         color: #676767;
         font-size: 13px;
         line-height: 13px;
         display: flex;
         align-items: center;
         justify-content: center;
+      }
+
+      .node-box.active {
+        border-color: #96c6fe;
+        background: #ccedfe;
       }
 
       .connector-line {
@@ -236,7 +241,7 @@
           <div class="endpoint">
             <button class="side-btn side-top" data-endpoint="source" data-side="TOP" type="button">-</button>
             <button class="side-btn side-left" data-endpoint="source" data-side="LEFT" type="button">-</button>
-            <div class="node-box">A</div>
+            <div class="node-box" id="sourceNodeBox">A</div>
             <button class="side-btn side-right" data-endpoint="source" data-side="RIGHT" type="button">-</button>
             <button class="side-btn side-bottom" data-endpoint="source" data-side="BOTTOM" type="button">-</button>
           </div>
@@ -244,7 +249,7 @@
           <div class="endpoint">
             <button class="side-btn side-top" data-endpoint="target" data-side="TOP" type="button">-</button>
             <button class="side-btn side-left" data-endpoint="target" data-side="LEFT" type="button">-</button>
-            <div class="node-box">B</div>
+            <div class="node-box" id="targetNodeBox">B</div>
             <button class="side-btn side-right" data-endpoint="target" data-side="RIGHT" type="button">-</button>
             <button class="side-btn side-bottom" data-endpoint="target" data-side="BOTTOM" type="button">-</button>
           </div>

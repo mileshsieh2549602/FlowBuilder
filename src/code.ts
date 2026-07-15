@@ -80,6 +80,7 @@ figma.ui.onmessage = async (msg: PluginRequest) => {
 
 figma.on("selectionchange", () => {
   updateSelectionOrder();
+  emitConnectorSelectionState();
   emitNodeTypeState();
   void maybeAutoGenerateConnector();
   void maybeAutoInsertNodeFromConnector();
@@ -106,9 +107,11 @@ async function initializeSettings(): Promise<void> {
     }
     emitDebugState();
     emitConnectorPreferenceState();
+    emitConnectorSelectionState();
     emitNodeTypeState();
     setTimeout(() => emitDebugState(), 300);
     setTimeout(() => emitConnectorPreferenceState(), 300);
+    setTimeout(() => emitConnectorSelectionState(), 300);
     setTimeout(() => emitNodeTypeState(), 300);
   } catch {
     debugEnabled = false;
@@ -121,6 +124,18 @@ function emitDebugState(): void {
 
 function emitConnectorPreferenceState(): void {
   figma.ui.postMessage({ type: "connector-side-state", payload: connectorPreference });
+}
+
+function emitConnectorSelectionState(): void {
+  const selectableIds = new Set(figma.currentPage.selection.filter((node) => isFrameOrImage(node)).map((node) => node.id));
+  const orderedSelectableIds = frameSelectionOrder.filter((id) => selectableIds.has(id));
+  figma.ui.postMessage({
+    type: "connector-selection-state",
+    payload: {
+      sourceSelected: orderedSelectableIds.length >= 1,
+      targetSelected: orderedSelectableIds.length >= 2
+    }
+  });
 }
 
 function emitNodeTypeState(): void {
