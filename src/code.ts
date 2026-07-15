@@ -652,14 +652,14 @@ function layoutFallbackShapeLink(
   const arrowLength = 10;
   const stroke = 3;
   const pathEnd = getPathEndBeforeArrow(endPoint, targetSide, arrowLength);
-  const route = buildOrthogonalRoute(startPoint, pathEnd, sourceSide);
+  const route = buildOrthogonalRoute(startPoint, pathEnd, sourceSide, targetSide);
   const segment1Abs = getSegmentRect(route[0], route[1], stroke);
   const segment2Abs = getSegmentRect(route[1], route[2], stroke);
   const segment3Abs = getSegmentRect(route[2], route[3], stroke);
   const arrowPath = getArrowPath(targetSide);
   const arrowAbs = getArrowRect(endPoint, targetSide, arrowLength);
   const debugStartAbs = { x: startPoint.x - 3, y: startPoint.y - 3, w: 6, h: 6 };
-  const debugMidAbs = { x: route[2].x - 3, y: route[2].y - 3, w: 6, h: 6 };
+  const debugMidAbs = { x: route[1].x - 3, y: route[1].y - 3, w: 6, h: 6 };
   const debugEndAbs = { x: endPoint.x - 3, y: endPoint.y - 3, w: 6, h: 6 };
 
   const minX = Math.min(
@@ -765,9 +765,13 @@ function isHorizontalSide(side: ConnectorSide): boolean {
 function buildOrthogonalRoute(
   startPoint: { x: number; y: number },
   endPoint: { x: number; y: number },
-  sourceSide: ConnectorSide
+  sourceSide: ConnectorSide,
+  targetSide: ConnectorSide
 ): [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }, { x: number; y: number }] {
-  if (isHorizontalSide(sourceSide)) {
+  const sourceIsHorizontal = isHorizontalSide(sourceSide);
+  const targetIsHorizontal = isHorizontalSide(targetSide);
+
+  if (sourceIsHorizontal && targetIsHorizontal) {
     const midX = (startPoint.x + endPoint.x) / 2;
     return [
       startPoint,
@@ -776,11 +780,30 @@ function buildOrthogonalRoute(
       endPoint
     ];
   }
-  const midY = (startPoint.y + endPoint.y) / 2;
+
+  if (!sourceIsHorizontal && !targetIsHorizontal) {
+    const midY = (startPoint.y + endPoint.y) / 2;
+    return [
+      startPoint,
+      { x: startPoint.x, y: midY },
+      { x: endPoint.x, y: midY },
+      endPoint
+    ];
+  }
+
+  if (!sourceIsHorizontal && targetIsHorizontal) {
+    return [
+      startPoint,
+      { x: startPoint.x, y: endPoint.y },
+      { x: endPoint.x, y: endPoint.y },
+      endPoint
+    ];
+  }
+
   return [
     startPoint,
-    { x: startPoint.x, y: midY },
-    { x: endPoint.x, y: midY },
+    { x: endPoint.x, y: startPoint.y },
+    { x: endPoint.x, y: endPoint.y },
     endPoint
   ];
 }
