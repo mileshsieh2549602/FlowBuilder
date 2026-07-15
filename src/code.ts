@@ -543,6 +543,16 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
     case "start-end": {
       node.name = "Start/End Node";
       hideProcessShape(node);
+      node.layoutMode = "VERTICAL";
+      node.primaryAxisSizingMode = "FIXED";
+      node.counterAxisSizingMode = "FIXED";
+      node.primaryAxisAlignItems = "CENTER";
+      node.counterAxisAlignItems = "CENTER";
+      node.itemSpacing = 0;
+      node.paddingLeft = 0;
+      node.paddingRight = 0;
+      node.paddingTop = 0;
+      node.paddingBottom = 0;
       node.cornerRadius = 999;
       node.resize(132, 52);
       node.fills = [{ type: "SOLID", color: hexToRgb("#FCFCFC") }];
@@ -550,13 +560,21 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
       node.strokeWeight = 1.5;
       label.rotation = 0;
       label.textAutoResize = "WIDTH_AND_HEIGHT";
-      label.x = node.width / 2 - label.width / 2;
-      label.y = node.height / 2 - label.height / 2;
       break;
     }
     case "yes-no": {
       node.name = "Y/N Node";
       hideProcessShape(node);
+      node.layoutMode = "VERTICAL";
+      node.primaryAxisSizingMode = "FIXED";
+      node.counterAxisSizingMode = "FIXED";
+      node.primaryAxisAlignItems = "CENTER";
+      node.counterAxisAlignItems = "CENTER";
+      node.itemSpacing = 0;
+      node.paddingLeft = 0;
+      node.paddingRight = 0;
+      node.paddingTop = 0;
+      node.paddingBottom = 0;
       node.cornerRadius = 6;
       node.resize(52, 52);
       node.fills = [{ type: "SOLID", color: hexToRgb("#FCFCFC") }];
@@ -564,8 +582,6 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
       node.strokeWeight = 1.5;
       label.rotation = 0;
       label.textAutoResize = "WIDTH_AND_HEIGHT";
-      label.x = node.width / 2 - label.width / 2;
-      label.y = node.height / 2 - label.height / 2;
       break;
     }
     default:
