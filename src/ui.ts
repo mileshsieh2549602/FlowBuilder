@@ -57,16 +57,44 @@ let nodeTypeEnabled = false;
 let activeNodeType: NodeType | null = null;
 let sourceSelected = false;
 let targetSelected = false;
+let statusHideTimer: ReturnType<typeof setTimeout> | null = null;
+let statusCleanupTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearStatusTimers(): void {
+  if (statusHideTimer) {
+    clearTimeout(statusHideTimer);
+    statusHideTimer = null;
+  }
+  if (statusCleanupTimer) {
+    clearTimeout(statusCleanupTimer);
+    statusCleanupTimer = null;
+  }
+}
 
 function setStatus(target: HTMLDivElement, kind: StatusKind, message: string): void {
+  clearStatusTimers();
   target.textContent = message;
   target.classList.remove("success", "error");
   target.classList.add(kind);
+  target.classList.add("visible");
+
+  // Keep message visible for 5 seconds, then fade out.
+  statusHideTimer = setTimeout(() => {
+    target.classList.remove("visible");
+    statusCleanupTimer = setTimeout(() => {
+      target.textContent = "";
+      target.classList.remove("success", "error");
+      statusCleanupTimer = null;
+    }, 500);
+    statusHideTimer = null;
+  }, 5000);
 }
 
 function clearStatus(target: HTMLDivElement): void {
+  clearStatusTimers();
   target.textContent = "";
   target.classList.remove("success", "error");
+  target.classList.remove("visible");
 }
 
 function updateSideButtonState(): void {
