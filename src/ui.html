@@ -89,6 +89,11 @@
         border-top: 1px solid #efefef;
       }
 
+      .section:first-of-type {
+        border-top: none;
+        padding-top: 0;
+      }
+
       button {
         border-radius: 8px;
         padding: 9px 12px;
@@ -172,6 +177,81 @@
         padding: 8px 10px;
       }
 
+      .connector-preview {
+        margin-top: 8px;
+        display: grid;
+        grid-template-columns: 1fr 24px 1fr;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .connector-line {
+        height: 2px;
+        background: #9ecff3;
+      }
+
+      .endpoint {
+        display: grid;
+        grid-template-columns: 24px 1fr 24px;
+        grid-template-rows: 24px 52px 24px;
+        gap: 4px;
+        justify-items: center;
+        align-items: center;
+      }
+
+      .side-btn {
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        border: 1px solid #d8d8d8;
+        background: #fff;
+        color: #6e6e6e;
+        font-size: 11px;
+        padding: 0;
+        font-weight: 600;
+      }
+
+      .side-btn.active {
+        border-color: #9ecff3;
+        background: #dff0fb;
+        color: #1d3f5f;
+      }
+
+      .side-top {
+        grid-column: 2;
+        grid-row: 1;
+      }
+
+      .side-left {
+        grid-column: 1;
+        grid-row: 2;
+      }
+
+      .side-right {
+        grid-column: 3;
+        grid-row: 2;
+      }
+
+      .side-bottom {
+        grid-column: 2;
+        grid-row: 3;
+      }
+
+      .node-box {
+        grid-column: 2;
+        grid-row: 2;
+        width: 52px;
+        height: 52px;
+        border: 2px solid #383838;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        color: #383838;
+        background: #fcfcfc;
+      }
+
     </style>
   </head>
   <body>
@@ -179,7 +259,28 @@
       <div class="header">
         <h1>Flow Builder</h1>
       </div>
-      <p class="description">Select one Flow Node and change its type.</p>
+      <p class="description">Configure connector sides, then edit Node Type when needed.</p>
+
+      <div class="section">
+        <p class="caption">Connector Sides (A=source / B=target)</p>
+        <div class="connector-preview">
+          <div class="endpoint" id="sourceSideButtons">
+            <button class="side-btn side-top" data-endpoint="source" data-side="TOP" type="button">↑</button>
+            <button class="side-btn side-left" data-endpoint="source" data-side="LEFT" type="button">←</button>
+            <div class="node-box">A</div>
+            <button class="side-btn side-right" data-endpoint="source" data-side="RIGHT" type="button">→</button>
+            <button class="side-btn side-bottom" data-endpoint="source" data-side="BOTTOM" type="button">↓</button>
+          </div>
+          <div class="connector-line"></div>
+          <div class="endpoint" id="targetSideButtons">
+            <button class="side-btn side-top" data-endpoint="target" data-side="TOP" type="button">↑</button>
+            <button class="side-btn side-left" data-endpoint="target" data-side="LEFT" type="button">←</button>
+            <div class="node-box">B</div>
+            <button class="side-btn side-right" data-endpoint="target" data-side="RIGHT" type="button">→</button>
+            <button class="side-btn side-bottom" data-endpoint="target" data-side="BOTTOM" type="button">↓</button>
+          </div>
+        </div>
+      </div>
 
       <label class="debug-toggle" for="debugToggle">
         <input id="debugToggle" type="checkbox" />
@@ -199,11 +300,13 @@
 
       <div class="section">
         <ol class="instruction">
+          <li>Choose A/B connector sides in the panel.</li>
+          <li>Select 2 Frame/Image/Auto Layout nodes to auto-generate connector.</li>
           <li>Select one node created from a connector.</li>
           <li>Click any Node Type button.</li>
           <li>The node updates to your selected type.</li>
         </ol>
-        <p class="caption">Connector generation is automatic when 2 Frame/Image/Auto Layout nodes are selected.</p>
+        <p class="caption">A and B represent source and target nodes in selection order.</p>
       </div>
     </div>
 
