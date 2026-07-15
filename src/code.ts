@@ -461,6 +461,10 @@ function hideProcessShape(node: FrameNode): void {
 }
 
 function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode: "default" | "preserve" }): void {
+  const shouldPreserveCenter = textBehavior.mode === "preserve";
+  const preservedCenterX = node.x + node.width / 2;
+  const preservedCenterY = node.y + node.height / 2;
+
   node.layoutMode = "NONE";
   node.primaryAxisSizingMode = "AUTO";
   node.counterAxisSizingMode = "AUTO";
@@ -586,6 +590,11 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
     }
     default:
       break;
+  }
+
+  if (shouldPreserveCenter) {
+    node.x = preservedCenterX - node.width / 2;
+    node.y = preservedCenterY - node.height / 2;
   }
 
   node.setPluginData(FLOW_NODE_MARK, "true");
