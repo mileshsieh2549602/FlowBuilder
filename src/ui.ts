@@ -1,5 +1,6 @@
 type StatusKind = "success" | "error";
 type ConnectorSide = "LEFT" | "RIGHT" | "TOP" | "BOTTOM";
+type NodeType = "none" | "process" | "start-end" | "yes-no";
 
 interface ConnectorPreferencePayload {
   sourceSide: ConnectorSide;
@@ -23,19 +24,28 @@ interface PluginConnectorSideStateMessage {
   type: "connector-side-state";
   payload: ConnectorPreferencePayload;
 }
+interface PluginNodeTypeStateMessage {
+  type: "node-type-state";
+  payload: {
+    enabled: boolean;
+    selectedType: NodeType | null;
+  };
+}
 
 const panelStatus = document.getElementById("panelStatus") as HTMLDivElement;
-const debugToggle = document.getElementById("debugToggle") as HTMLInputElement;
 const sideButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".side-btn"));
 const nodeTypeNone = document.getElementById("nodeTypeNone") as HTMLButtonElement;
 const nodeTypeProcess = document.getElementById("nodeTypeProcess") as HTMLButtonElement;
 const nodeTypeStartEnd = document.getElementById("nodeTypeStartEnd") as HTMLButtonElement;
 const nodeTypeYesNo = document.getElementById("nodeTypeYesNo") as HTMLButtonElement;
+const nodeTypeButtons = [nodeTypeNone, nodeTypeProcess, nodeTypeStartEnd, nodeTypeYesNo];
 
 const connectorPreference: ConnectorPreferencePayload = {
   sourceSide: "RIGHT",
   targetSide: "LEFT"
 };
+let nodeTypeEnabled = false;
+let activeNodeType: NodeType | null = null;
 
 function setStatus(target: HTMLDivElement, kind: StatusKind, message: string): void {
   target.textContent = message;
@@ -72,19 +82,15 @@ function sendConnectorPreference(): void {
   );
 }
 
-debugToggle.addEventListener("change", () => {
-  parent.postMessage(
-    {
-      pluginMessage: {
-        type: "set-debug",
-        payload: { enabled: debugToggle.checked }
-      }
-    },
-    "*"
-  );
-});
+function updateNodeTypeVisualState(): void {
+  nodeTypeButtons.forEach((button) => {
+    const type = button.dataset.nodeType as NodeType | undefined;
+    button.classList.toggle("enabled", nodeTypeEnabled);
+    button.classList.toggle("active", nodeTypeEnabled && !!type && activeNodeType === type);
+  });
+}
 
-function sendNodeType(nodeType: "none" | "process" | "start-end" | "yes-no"): void {
+function sendNodeType(nodeType: NodeType): void {
   clearStatus(panelStatus);
   parent.postMessage(
     {
@@ -97,10 +103,38 @@ function sendNodeType(nodeType: "none" | "process" | "start-end" | "yes-no"): vo
   );
 }
 
-nodeTypeNone.addEventListener("click", () => sendNodeType("none"));
-nodeTypeProcess.addEventListener("click", () => sendNodeType("process"));
-nodeTypeStartEnd.addEventListener("click", () => sendNodeType("start-end"));
-nodeTypeYesNo.addEventListener("click", () => sendNodeType("yes-no"));
+nodeTypeNone.addEventListener("click", () => {
+  if (!nodeTypeEnabled) {
+    return;
+  }
+  sendNodeType("none");
+  activeNodeType = "none";
+  updateNodeTypeVisualState();
+});
+nodeTypeProcess.addEventListener("click", () => {
+  if (!nodeTypeEnabled) {
+    return;
+  }
+  sendNodeType("process");
+  activeNodeType = "process";
+  updateNodeTypeVisualState();
+});
+nodeTypeStartEnd.addEventListener("click", () => {
+  if (!nodeTypeEnabled) {
+    return;
+  }
+  sendNodeType("start-end");
+  activeNodeType = "start-end";
+  updateNodeTypeVisualState();
+});
+nodeTypeYesNo.addEventListener("click", () => {
+  if (!nodeTypeEnabled) {
+    return;
+  }
+  sendNodeType("yes-no");
+  activeNodeType = "yes-no";
+  updateNodeTypeVisualState();
+});
 
 sideButtons.forEach((button) => {
   button.addEventListener("click", () => {
@@ -121,22 +155,30 @@ sideButtons.forEach((button) => {
 });
 
 updateSideButtonState();
+updateNodeTypeVisualState();
 
 window.onmessage = (
-  event: MessageEvent<{ pluginMessage?: PluginStatusMessage | PluginDebugStateMessage | PluginConnectorSideStateMessage }>
+  event: MessageEvent<{
+    pluginMessage?: PluginStatusMessage | PluginDebugStateMessage | PluginConnectorSideStateMessage | PluginNodeTypeStateMessage;
+  }>
 ) => {
   const pluginMessage = event.data?.pluginMessage;
   if (!pluginMessage) {
-    return;
-  }
-  if (pluginMessage.type === "debug-state") {
-    debugToggle.checked = pluginMessage.payload.enabled;
     return;
   }
   if (pluginMessage.type === "connector-side-state") {
     connectorPreference.sourceSide = pluginMessage.payload.sourceSide;
     connectorPreference.targetSide = pluginMessage.payload.targetSide;
     updateSideButtonState();
+    return;
+  }
+  if (pluginMessage.type === "node-type-state") {
+    nodeTypeEnabled = pluginMessage.payload.enabled;
+    activeNodeType = pluginMessage.payload.selectedType;
+    updateNodeTypeVisualState();
+    return;
+  }
+  if (pluginMessage.type === "debug-state") {
     return;
   }
   if (pluginMessage.type !== "status") {

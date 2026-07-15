@@ -6,123 +6,209 @@
     <style>
       :root {
         color-scheme: light;
-        font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+        font-family: Roboto, Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
       }
 
       body {
         margin: 0;
-        padding: 14px;
-        background: #fcfcfc;
-        color: #383838;
+        padding: 24px;
+        background: #ffffff;
+        color: #000000;
       }
 
-      .window {
-        border-radius: 12px;
-        border: 1px solid #e8e8e8;
-        background: #fcfcfc;
-        padding: 12px;
-      }
-
-      .header {
-        display: flex;
-        align-items: center;
-        margin-bottom: 8px;
-      }
-
-      h1 {
-        margin: 0;
-        font-size: 15px;
-        line-height: 20px;
-        color: #383838;
-      }
-
-      .description {
-        margin: 0 0 12px;
-        font-size: 12px;
-        line-height: 18px;
-        color: #6e6e6e;
-      }
-
-      label {
-        font-size: 12px;
-        font-weight: 600;
-        color: #383838;
-      }
-
-      input,
-      select,
-      button {
-        font: inherit;
-      }
-
-      input,
-      select {
-        box-sizing: border-box;
-        width: 100%;
-        margin-top: 6px;
-        border: 1px solid #d8d8d8;
-        border-radius: 8px;
-        background: #fff;
-        color: #383838;
-      }
-
-      input,
-      select {
-        height: 34px;
-        padding: 0 10px;
-      }
-
-      .grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-      }
-
-      form {
+      .panel {
+        width: 320px;
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 20px;
       }
 
-      .section {
-        padding-top: 8px;
-        border-top: 1px solid #efefef;
+      .section-title {
+        margin: 0;
+        font-size: 13px;
+        line-height: 15px;
+        font-weight: 700;
+        color: #000000;
       }
 
-      .section:first-of-type {
-        border-top: none;
-        padding-top: 0;
-      }
-
-      button {
-        border-radius: 8px;
-        padding: 9px 12px;
-        cursor: pointer;
-        font-weight: 600;
-      }
-
-      .primary {
-        border: none;
-        background: #383838;
-        color: #ffffff;
-      }
-
-      .secondary {
-        border: 1px solid #383838;
-        background: #ffffff;
-        color: #383838;
-      }
-
-      .caption {
-        margin: 6px 0 0;
+      .section-description {
+        margin: 4px 0 0;
         font-size: 11px;
-        line-height: 16px;
-        color: #6e6e6e;
+        line-height: 13px;
+        color: #676767;
+      }
+
+      .connector-block {
+        width: 223px;
+      }
+
+      .connector-preview {
+        margin-top: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .endpoint {
+        position: relative;
+        width: 88px;
+        height: 88px;
+      }
+
+      .side-btn {
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        border: 1px solid #969696;
+        border-radius: 3px;
+        background: #ffffff;
+        color: #969696;
+        font-size: 13px;
+        line-height: 13px;
+        font-weight: 400;
+        padding: 0;
+        cursor: pointer;
+      }
+
+      .side-btn.active {
+        border-color: #96c6fe;
+        background: #ccedfe;
+        color: #6fb1fe;
+      }
+
+      .side-top {
+        left: 36px;
+        top: 0;
+      }
+
+      .side-left {
+        left: 0;
+        top: 36px;
+      }
+
+      .side-right {
+        left: 72px;
+        top: 36px;
+      }
+
+      .side-bottom {
+        left: 36px;
+        top: 72px;
+      }
+
+      .node-box {
+        position: absolute;
+        left: 24px;
+        top: 24px;
+        width: 40px;
+        height: 40px;
+        border: 1px solid #96c6fe;
+        border-radius: 3px;
+        background: #ccedfe;
+        color: #676767;
+        font-size: 13px;
+        line-height: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .connector-line {
+        width: 23px;
+        height: 2px;
+        background: #96c6fe;
+      }
+
+      .divider {
+        width: 281px;
+        border-top: 1px solid #d2d2d2;
+      }
+
+      .node-types {
+        margin-top: 20px;
+        display: flex;
+        gap: 20px;
+      }
+
+      .node-type-button {
+        width: 65px;
+        height: 50px;
+        border: none;
+        background: transparent;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 15px;
+        cursor: pointer;
+      }
+
+      .node-type-button:not(.enabled) {
+        cursor: default;
+      }
+
+      .node-type-icon {
+        position: relative;
+        border: 1px solid #afafaf;
+      }
+
+      .node-type-label {
+        margin: 0;
+        min-width: 65px;
+        text-align: center;
+        font-size: 11px;
+        line-height: 13px;
+        color: #afafaf;
+      }
+
+      .node-type-button.enabled .node-type-label {
+        color: #676767;
+      }
+
+      .node-type-button.enabled .node-type-icon {
+        border-color: #969696;
+      }
+
+      .node-type-button.active .node-type-icon {
+        border-color: #96c6fe;
+        background: #ccedfe;
+      }
+
+      .node-type-button.none .node-type-icon {
+        width: 38px;
+        height: 17px;
+      }
+
+      .node-type-button.process {
+        gap: 11px;
+      }
+
+      .node-type-button.process .node-type-icon {
+        width: 17px;
+        height: 17px;
+        transform: rotate(45deg);
+        background: transparent;
+      }
+
+      .node-type-button.start-end .node-type-icon {
+        width: 38px;
+        height: 17px;
+        border-radius: 999px;
+      }
+
+      .node-type-button.yes-no .node-type-icon {
+        width: 17px;
+        height: 17px;
       }
 
       .status {
-        min-height: 16px;
         margin-top: 8px;
+        min-height: 16px;
         font-size: 11px;
         line-height: 16px;
       }
@@ -134,137 +220,15 @@
       .status.error {
         color: #b42318;
       }
-
-      .instruction {
-        margin: 0;
-        padding-left: 18px;
-        font-size: 11px;
-        line-height: 16px;
-        color: #6e6e6e;
-      }
-
-      .instruction li {
-        margin-bottom: 2px;
-      }
-
-      .debug-toggle {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 12px;
-        color: #383838;
-        margin-top: 4px;
-      }
-
-      .debug-toggle input {
-        width: auto;
-        height: auto;
-        margin: 0;
-      }
-
-      .node-types {
-        margin-top: 10px;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-      }
-
-      .node-types button {
-        border: 1px solid #383838;
-        background: #fff;
-        color: #383838;
-        font-size: 12px;
-        padding: 8px 10px;
-      }
-
-      .connector-preview {
-        margin-top: 8px;
-        display: grid;
-        grid-template-columns: 1fr 24px 1fr;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .connector-line {
-        height: 2px;
-        background: #9ecff3;
-      }
-
-      .endpoint {
-        display: grid;
-        grid-template-columns: 24px 1fr 24px;
-        grid-template-rows: 24px 52px 24px;
-        gap: 4px;
-        justify-items: center;
-        align-items: center;
-      }
-
-      .side-btn {
-        width: 24px;
-        height: 24px;
-        border-radius: 6px;
-        border: 1px solid #d8d8d8;
-        background: #fff;
-        color: #6e6e6e;
-        font-size: 11px;
-        padding: 0;
-        font-weight: 600;
-      }
-
-      .side-btn.active {
-        border-color: #9ecff3;
-        background: #dff0fb;
-        color: #1d3f5f;
-      }
-
-      .side-top {
-        grid-column: 2;
-        grid-row: 1;
-      }
-
-      .side-left {
-        grid-column: 1;
-        grid-row: 2;
-      }
-
-      .side-right {
-        grid-column: 3;
-        grid-row: 2;
-      }
-
-      .side-bottom {
-        grid-column: 2;
-        grid-row: 3;
-      }
-
-      .node-box {
-        grid-column: 2;
-        grid-row: 2;
-        width: 52px;
-        height: 52px;
-        border: 2px solid #383838;
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 700;
-        color: #383838;
-        background: #fcfcfc;
-      }
-
     </style>
   </head>
   <body>
-    <div class="window">
-      <div class="header">
-        <h1>Flow Builder</h1>
-      </div>
-      <p class="description">Configure connector sides, then edit Node Type when needed.</p>
-
-      <div class="section">
-        <p class="caption">Connector Sides (A=source / B=target)</p>
+    <div class="panel">
+      <div class="connector-block">
+        <p class="section-title">Connector Sides</p>
+        <p class="section-description">Hold &lt;Shift&gt;, then select two layers.</p>
         <div class="connector-preview">
-          <div class="endpoint" id="sourceSideButtons">
+          <div class="endpoint">
             <button class="side-btn side-top" data-endpoint="source" data-side="TOP" type="button">-</button>
             <button class="side-btn side-left" data-endpoint="source" data-side="LEFT" type="button">-</button>
             <div class="node-box">A</div>
@@ -272,7 +236,7 @@
             <button class="side-btn side-bottom" data-endpoint="source" data-side="BOTTOM" type="button">-</button>
           </div>
           <div class="connector-line"></div>
-          <div class="endpoint" id="targetSideButtons">
+          <div class="endpoint">
             <button class="side-btn side-top" data-endpoint="target" data-side="TOP" type="button">-</button>
             <button class="side-btn side-left" data-endpoint="target" data-side="LEFT" type="button">-</button>
             <div class="node-box">B</div>
@@ -282,31 +246,30 @@
         </div>
       </div>
 
-      <label class="debug-toggle" for="debugToggle">
-        <input id="debugToggle" type="checkbox" />
-        Debug mode (show endpoint/path nodes)
-      </label>
+      <div class="divider"></div>
 
-      <div class="section">
-        <p class="caption">Node Type (select one Flow Node first)</p>
+      <div>
+        <p class="section-title">Node Type</p>
+        <p class="section-description">Select one Flow Node first and update to your selected type.</p>
         <div class="node-types">
-          <button type="button" id="nodeTypeNone">None Node</button>
-          <button type="button" id="nodeTypeProcess">Process</button>
-          <button type="button" id="nodeTypeStartEnd">Start/End</button>
-          <button type="button" id="nodeTypeYesNo">Y/N</button>
+          <button class="node-type-button none" id="nodeTypeNone" data-node-type="none" type="button">
+            <div class="node-type-icon"></div>
+            <p class="node-type-label">None Node</p>
+          </button>
+          <button class="node-type-button process" id="nodeTypeProcess" data-node-type="process" type="button">
+            <div class="node-type-icon"></div>
+            <p class="node-type-label">Process</p>
+          </button>
+          <button class="node-type-button start-end" id="nodeTypeStartEnd" data-node-type="start-end" type="button">
+            <div class="node-type-icon"></div>
+            <p class="node-type-label">Start / End</p>
+          </button>
+          <button class="node-type-button yes-no" id="nodeTypeYesNo" data-node-type="yes-no" type="button">
+            <div class="node-type-icon"></div>
+            <p class="node-type-label">Y / N</p>
+          </button>
         </div>
         <div id="panelStatus" class="status"></div>
-      </div>
-
-      <div class="section">
-        <ol class="instruction">
-          <li>Choose A/B connector sides in the panel.</li>
-          <li>Select 2 Frame/Image/Auto Layout nodes to auto-generate connector.</li>
-          <li>Select one node created from a connector.</li>
-          <li>Click any Node Type button.</li>
-          <li>The node updates to your selected type.</li>
-        </ol>
-        <p class="caption">A and B represent source and target nodes in selection order.</p>
       </div>
     </div>
 

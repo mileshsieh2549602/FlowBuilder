@@ -1,4 +1,4 @@
-figma.showUI(__html__, { width: 360, height: 430 });
+figma.showUI(__html__, { width: 368, height: 350 });
 
 type NodeType = "none" | "process" | "start-end" | "yes-no";
 type ConnectorSide = "LEFT" | "RIGHT" | "TOP" | "BOTTOM";
@@ -80,6 +80,7 @@ figma.ui.onmessage = async (msg: PluginRequest) => {
 
 figma.on("selectionchange", () => {
   updateSelectionOrder();
+  emitNodeTypeState();
   void maybeAutoGenerateConnector();
   void maybeAutoInsertNodeFromConnector();
 });
@@ -105,8 +106,10 @@ async function initializeSettings(): Promise<void> {
     }
     emitDebugState();
     emitConnectorPreferenceState();
+    emitNodeTypeState();
     setTimeout(() => emitDebugState(), 300);
     setTimeout(() => emitConnectorPreferenceState(), 300);
+    setTimeout(() => emitNodeTypeState(), 300);
   } catch {
     debugEnabled = false;
   }
@@ -118,6 +121,26 @@ function emitDebugState(): void {
 
 function emitConnectorPreferenceState(): void {
   figma.ui.postMessage({ type: "connector-side-state", payload: connectorPreference });
+}
+
+function emitNodeTypeState(): void {
+  const selected = figma.currentPage.selection;
+  if (selected.length === 1) {
+    const node = selected[0];
+    if (node.type === "FRAME" && node.getPluginData(FLOW_NODE_MARK) === "true") {
+      const currentNodeTypeRaw = node.getPluginData("flow-builder-node-type");
+      const currentNodeType = isNodeType(currentNodeTypeRaw) ? currentNodeTypeRaw : null;
+      figma.ui.postMessage({
+        type: "node-type-state",
+        payload: { enabled: true, selectedType: currentNodeType }
+      });
+      return;
+    }
+  }
+  figma.ui.postMessage({
+    type: "node-type-state",
+    payload: { enabled: false, selectedType: null }
+  });
 }
 
 async function initializeDocumentSync(): Promise<void> {
@@ -152,6 +175,10 @@ function isAutoLayoutNode(node: SceneNode): boolean {
 
 function isConnectorSide(value: unknown): value is ConnectorSide {
   return value === "LEFT" || value === "RIGHT" || value === "TOP" || value === "BOTTOM";
+}
+
+function isNodeType(value: unknown): value is NodeType {
+  return value === "none" || value === "process" || value === "start-end" || value === "yes-no";
 }
 
 function isFrameOrImage(node: SceneNode): node is FrameLikeNode {
@@ -360,6 +387,7 @@ async function applyNodeTypeToSelection(nodeType: NodeType): Promise<void> {
     throw new Error("Selected object is not a Flow Node.");
   }
   applyNodeType(selected, nodeType, { mode: "preserve" });
+  emitNodeTypeState();
 }
 
 function createBaseNodeAt(centerX: number, centerY: number): FrameNode {
