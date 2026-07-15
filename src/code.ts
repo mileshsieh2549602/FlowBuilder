@@ -480,12 +480,12 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
     none: "Text",
     process: "Text",
     "start-end": "Text",
-    "yes-no": "Y/N"
+    "yes-no": "Text"
   };
   if (textBehavior.mode === "default") {
     label.characters = defaults[nodeType];
   } else if (nodeType === "yes-no") {
-    // Y/N node has a constrained format and always resets text.
+    // Y/N node resets to its default text when applied.
     label.characters = defaults[nodeType];
   } else if (!label.characters || label.characters.trim().length === 0) {
     label.characters = defaults[nodeType];
