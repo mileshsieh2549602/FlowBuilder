@@ -789,7 +789,8 @@ function getPathEndBeforeArrow(endPoint: { x: number; y: number }, targetSide: C
   x: number;
   y: number;
 } {
-  switch (targetSide) {
+  const arrowDirection = oppositeSide(targetSide);
+  switch (arrowDirection) {
     case "LEFT":
       return { x: endPoint.x + arrowLength, y: endPoint.y };
     case "RIGHT":
@@ -804,7 +805,8 @@ function getPathEndBeforeArrow(endPoint: { x: number; y: number }, targetSide: C
 }
 
 function getArrowPath(targetSide: ConnectorSide): string {
-  switch (targetSide) {
+  const arrowDirection = oppositeSide(targetSide);
+  switch (arrowDirection) {
     case "LEFT":
       return "M 10 0 L 0 5 L 10 10 Z";
     case "RIGHT":
@@ -824,7 +826,8 @@ function getArrowRect(endPoint: { x: number; y: number }, targetSide: ConnectorS
   w: number;
   h: number;
 } {
-  switch (targetSide) {
+  const arrowDirection = oppositeSide(targetSide);
+  switch (arrowDirection) {
     case "LEFT":
       return { x: endPoint.x, y: endPoint.y - 5, w: arrowLength, h: arrowLength };
     case "RIGHT":
