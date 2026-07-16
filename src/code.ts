@@ -448,7 +448,7 @@ function hideProcessShape(node: FrameNode): void {
 }
 
 function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode: "default" | "preserve" }): void {
-  const shouldPreserveCenter = textBehavior.mode === "preserve";
+  const shouldPreserveCenter = true;
   const preservedCenterX = node.x + node.width / 2;
   const preservedCenterY = node.y + node.height / 2;
 
