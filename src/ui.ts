@@ -36,7 +36,7 @@ interface PluginNodeTypeStateMessage {
   payload: {
     enabled: boolean;
     selectedType: NodeType | null;
-    canInsertNoneFromConnector: boolean;
+    canInsertFromConnector: boolean;
   };
 }
 
@@ -56,7 +56,7 @@ const connectorPreference: ConnectorPreferencePayload = {
 };
 let nodeTypeEnabled = false;
 let activeNodeType: NodeType | null = null;
-let canInsertNoneFromConnector = false;
+let canInsertFromConnector = false;
 let sourceSelected = false;
 let targetSelected = false;
 let statusHideTimer: ReturnType<typeof setTimeout> | null = null;
@@ -131,7 +131,7 @@ function sendConnectorPreference(): void {
 function updateNodeTypeVisualState(): void {
   nodeTypeButtons.forEach((button) => {
     const type = button.dataset.nodeType as NodeType | undefined;
-    const isEnabled = type === "none" ? nodeTypeEnabled || canInsertNoneFromConnector : nodeTypeEnabled;
+    const isEnabled = nodeTypeEnabled || canInsertFromConnector;
     button.classList.toggle("enabled", isEnabled);
     button.classList.toggle("active", nodeTypeEnabled && !!type && activeNodeType === type);
   });
@@ -151,7 +151,7 @@ function sendNodeType(nodeType: NodeType): void {
 }
 
 nodeTypeNone.addEventListener("click", () => {
-  if (!nodeTypeEnabled && !canInsertNoneFromConnector) {
+  if (!nodeTypeEnabled && !canInsertFromConnector) {
     return;
   }
   sendNodeType("none");
@@ -161,7 +161,7 @@ nodeTypeNone.addEventListener("click", () => {
   }
 });
 nodeTypeProcess.addEventListener("click", () => {
-  if (!nodeTypeEnabled) {
+  if (!nodeTypeEnabled && !canInsertFromConnector) {
     return;
   }
   sendNodeType("process");
@@ -169,7 +169,7 @@ nodeTypeProcess.addEventListener("click", () => {
   updateNodeTypeVisualState();
 });
 nodeTypeStartEnd.addEventListener("click", () => {
-  if (!nodeTypeEnabled) {
+  if (!nodeTypeEnabled && !canInsertFromConnector) {
     return;
   }
   sendNodeType("start-end");
@@ -177,7 +177,7 @@ nodeTypeStartEnd.addEventListener("click", () => {
   updateNodeTypeVisualState();
 });
 nodeTypeYesNo.addEventListener("click", () => {
-  if (!nodeTypeEnabled) {
+  if (!nodeTypeEnabled && !canInsertFromConnector) {
     return;
   }
   sendNodeType("yes-no");
@@ -236,7 +236,7 @@ window.onmessage = (
   if (pluginMessage.type === "node-type-state") {
     nodeTypeEnabled = pluginMessage.payload.enabled;
     activeNodeType = pluginMessage.payload.selectedType;
-    canInsertNoneFromConnector = pluginMessage.payload.canInsertNoneFromConnector;
+    canInsertFromConnector = pluginMessage.payload.canInsertFromConnector;
     updateNodeTypeVisualState();
     return;
   }

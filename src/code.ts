@@ -66,11 +66,8 @@ figma.ui.onmessage = async (msg: PluginRequest) => {
     }
     if (msg.type === "set-node-type") {
       if (figma.currentPage.selection.length === 1 && isConnectorGroup(figma.currentPage.selection[0])) {
-        if (msg.payload.nodeType !== "none") {
-          throw new Error('Select "None Node" to insert a node from connector, or select a Flow Node to change type.');
-        }
         await figma.loadFontAsync(FONT_REGULAR);
-        await insertDefaultNodeOnConnector(figma.currentPage.selection[0]);
+        await insertNodeOnConnector(figma.currentPage.selection[0], msg.payload.nodeType);
         emitNodeTypeState();
         sendStatus("success", "Node inserted");
         return;
@@ -153,7 +150,7 @@ function emitNodeTypeState(): void {
     if (isConnectorGroup(node)) {
       figma.ui.postMessage({
         type: "node-type-state",
-        payload: { enabled: false, selectedType: null, canInsertNoneFromConnector: true }
+        payload: { enabled: false, selectedType: null, canInsertFromConnector: true }
       });
       return;
     }
@@ -162,14 +159,14 @@ function emitNodeTypeState(): void {
       const currentNodeType = isNodeType(currentNodeTypeRaw) ? currentNodeTypeRaw : null;
       figma.ui.postMessage({
         type: "node-type-state",
-        payload: { enabled: true, selectedType: currentNodeType, canInsertNoneFromConnector: false }
+        payload: { enabled: true, selectedType: currentNodeType, canInsertFromConnector: false }
       });
       return;
     }
   }
   figma.ui.postMessage({
     type: "node-type-state",
-    payload: { enabled: false, selectedType: null, canInsertNoneFromConnector: false }
+    payload: { enabled: false, selectedType: null, canInsertFromConnector: false }
   });
 }
 
@@ -348,7 +345,7 @@ function createLinkBetweenNodes(
   return createFallbackShapeLink(sourceNode, targetNode, sourceSide, targetSide);
 }
 
-async function insertDefaultNodeOnConnector(connector: GroupNode): Promise<void> {
+async function insertNodeOnConnector(connector: GroupNode, nodeType: NodeType): Promise<void> {
   const startNodeId = connector.getPluginData(FALLBACK_LINK_START_ID);
   const endNodeId = connector.getPluginData(FALLBACK_LINK_END_ID);
   if (!startNodeId || !endNodeId) {
@@ -374,7 +371,7 @@ async function insertDefaultNodeOnConnector(connector: GroupNode): Promise<void>
   const centerY = (startPoint.y + endPoint.y) / 2;
 
   const node = createBaseNodeAt(centerX, centerY);
-  applyNodeType(node, "none", { mode: "default" });
+  applyNodeType(node, nodeType, { mode: "default" });
 
   createLinkBetweenNodes(startFrame, node, sourceSide, oppositeSide(sourceSide));
   createLinkBetweenNodes(node, endFrame, oppositeSide(targetSide), targetSide);
