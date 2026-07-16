@@ -400,9 +400,10 @@ function createBaseNodeAt(centerX: number, centerY: number): FrameNode {
   node.strokeWeight = 1.5;
   node.layoutMode = "NONE";
   node.clipsContent = false;
+  node.resize(132, 52);
   figma.currentPage.appendChild(node);
-  node.x = centerX - 66;
-  node.y = centerY - 26;
+  node.x = centerX - node.width / 2;
+  node.y = centerY - node.height / 2;
   return node;
 }
 
