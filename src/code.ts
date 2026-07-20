@@ -372,14 +372,21 @@ async function insertNodeOnConnector(connector: GroupNode, nodeType: NodeType): 
 
   const startPoint = getAttachPoint(startFrame, sourceSide);
   const endPoint = getAttachPoint(endFrame, targetSide);
-  const centerX = (startPoint.x + endPoint.x) / 2;
-  const centerY = (startPoint.y + endPoint.y) / 2;
+  const arrowLength = 10;
+  const pathEnd = getPathEndBeforeArrow(endPoint, targetSide, arrowLength);
+  const route = buildOrthogonalRoute(startPoint, pathEnd, sourceSide, targetSide);
+  const insertionPoint = getNodeInsertionPoint(startPoint, endPoint, route);
+  const centerX = insertionPoint.x;
+  const centerY = insertionPoint.y;
 
   const node = createBaseNodeAt(centerX, centerY);
   applyNodeType(node, nodeType, { mode: "default" });
 
-  createLinkBetweenNodes(startFrame, node, sourceSide, oppositeSide(sourceSide));
-  createLinkBetweenNodes(node, endFrame, oppositeSide(targetSide), targetSide);
+  const startFacingSide = getDominantSideToward(startPoint, insertionPoint, sourceSide);
+  const endFacingSide = getDominantSideToward(endPoint, insertionPoint, targetSide);
+
+  createLinkBetweenNodes(startFrame, node, startFacingSide, oppositeSide(startFacingSide));
+  createLinkBetweenNodes(node, endFrame, oppositeSide(endFacingSide), endFacingSide);
   connector.remove();
   figma.currentPage.selection = [node];
 }
@@ -822,6 +829,48 @@ function oppositeSide(side: ConnectorSide): ConnectorSide {
 
 function isHorizontalSide(side: ConnectorSide): boolean {
   return side === "LEFT" || side === "RIGHT";
+}
+
+function getDominantSideToward(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  fallback: ConnectorSide
+): ConnectorSide {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  if (Math.abs(dx) <= GEOMETRY_EPSILON && Math.abs(dy) <= GEOMETRY_EPSILON) {
+    return fallback;
+  }
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0 ? "RIGHT" : "LEFT";
+  }
+  return dy >= 0 ? "BOTTOM" : "TOP";
+}
+
+function getNodeInsertionPoint(
+  startPoint: { x: number; y: number },
+  endPoint: { x: number; y: number },
+  route: [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }, { x: number; y: number }]
+): { x: number; y: number } {
+  const midpoint = { x: (startPoint.x + endPoint.x) / 2, y: (startPoint.y + endPoint.y) / 2 };
+  const isVertical = Math.abs(startPoint.x - endPoint.x) <= GEOMETRY_EPSILON;
+  const isHorizontal = Math.abs(startPoint.y - endPoint.y) <= GEOMETRY_EPSILON;
+  if (isVertical || isHorizontal) {
+    return midpoint;
+  }
+
+  const firstTurn = route[1];
+  const secondTurn = route[2];
+  if (
+    Math.abs(firstTurn.x - startPoint.x) > GEOMETRY_EPSILON ||
+    Math.abs(firstTurn.y - startPoint.y) > GEOMETRY_EPSILON
+  ) {
+    return firstTurn;
+  }
+  if (Math.abs(secondTurn.x - route[3].x) > GEOMETRY_EPSILON || Math.abs(secondTurn.y - route[3].y) > GEOMETRY_EPSILON) {
+    return secondTurn;
+  }
+  return midpoint;
 }
 
 function buildOrthogonalRoute(
