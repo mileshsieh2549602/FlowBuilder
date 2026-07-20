@@ -1,4 +1,4 @@
-figma.showUI(__html__, { width: 400, height: 374 });
+figma.showUI(__html__, { width: 400, height: 388 });
 
 type NodeType = "none" | "process" | "start-end" | "yes-no";
 type ConnectorSide = "LEFT" | "RIGHT" | "TOP" | "BOTTOM";
