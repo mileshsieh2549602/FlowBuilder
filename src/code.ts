@@ -506,7 +506,7 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
       label.rotation = 0;
       label.textAutoResize = "HEIGHT";
       label.layoutAlign = "STRETCH";
-      label.resize(node.width - node.paddingLeft - node.paddingRight, Math.max(label.height, 16));
+      label.resize(node.width - node.paddingLeft - node.paddingRight, label.height);
       label.textAlignHorizontal = "CENTER";
       break;
     }
@@ -541,15 +541,15 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
       node.name = "Start/End Node";
       hideProcessShape(node);
       node.layoutMode = "VERTICAL";
-      node.primaryAxisSizingMode = "FIXED";
+      node.primaryAxisSizingMode = "AUTO";
       node.counterAxisSizingMode = "FIXED";
       node.primaryAxisAlignItems = "CENTER";
       node.counterAxisAlignItems = "CENTER";
       node.itemSpacing = 0;
       node.paddingLeft = 12;
       node.paddingRight = 12;
-      node.paddingTop = 0;
-      node.paddingBottom = 0;
+      node.paddingTop = 10;
+      node.paddingBottom = 10;
       node.cornerRadius = 999;
       node.resize(132, 52);
       node.fills = [{ type: "SOLID", color: hexToRgb("#FCFCFC") }];
@@ -558,7 +558,7 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
       label.rotation = 0;
       label.textAutoResize = "HEIGHT";
       label.layoutAlign = "STRETCH";
-      label.resize(node.width - node.paddingLeft - node.paddingRight, Math.max(label.height, 16));
+      label.resize(node.width - node.paddingLeft - node.paddingRight, label.height);
       label.textAlignHorizontal = "CENTER";
       break;
     }
