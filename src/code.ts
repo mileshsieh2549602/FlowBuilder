@@ -382,11 +382,13 @@ async function insertNodeOnConnector(connector: GroupNode, nodeType: NodeType): 
   const node = createBaseNodeAt(centerX, centerY);
   applyNodeType(node, nodeType, { mode: "default" });
 
-  const startFacingSide = getDominantSideToward(startPoint, insertionPoint, sourceSide);
-  const endFacingSide = getDominantSideToward(endPoint, insertionPoint, targetSide);
+  // Keep A/B endpoint sides locked to user-selected connector sides.
+  // Only the inserted node's attachment sides are inferred dynamically.
+  const nodeSideTowardStart = getDominantSideToward(insertionPoint, startPoint, oppositeSide(sourceSide));
+  const nodeSideTowardEnd = getDominantSideToward(insertionPoint, endPoint, oppositeSide(targetSide));
 
-  createLinkBetweenNodes(startFrame, node, startFacingSide, oppositeSide(startFacingSide));
-  createLinkBetweenNodes(node, endFrame, oppositeSide(endFacingSide), endFacingSide);
+  createLinkBetweenNodes(startFrame, node, sourceSide, nodeSideTowardStart);
+  createLinkBetweenNodes(node, endFrame, nodeSideTowardEnd, targetSide);
   connector.remove();
   figma.currentPage.selection = [node];
 }
