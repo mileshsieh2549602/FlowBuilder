@@ -490,7 +490,7 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
       hideProcessShape(node);
       node.layoutMode = "VERTICAL";
       node.primaryAxisSizingMode = "AUTO";
-      node.counterAxisSizingMode = "FIXED";
+      node.counterAxisSizingMode = "AUTO";
       node.primaryAxisAlignItems = "CENTER";
       node.counterAxisAlignItems = "CENTER";
       node.itemSpacing = 0;
@@ -499,14 +499,13 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
       node.paddingTop = 10;
       node.paddingBottom = 10;
       node.cornerRadius = 10;
-      node.resize(132, 52);
       node.fills = [{ type: "SOLID", color: hexToRgb("#FCFCFC") }];
       node.strokes = [{ type: "SOLID", color: hexToRgb("#383838") }];
       node.strokeWeight = 1.5;
       label.rotation = 0;
       label.textAutoResize = "HEIGHT";
       label.layoutAlign = "STRETCH";
-      label.resize(node.width - node.paddingLeft - node.paddingRight, label.height);
+      label.resize(108, label.height);
       label.textAlignHorizontal = "CENTER";
       break;
     }
@@ -542,7 +541,7 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
       hideProcessShape(node);
       node.layoutMode = "VERTICAL";
       node.primaryAxisSizingMode = "AUTO";
-      node.counterAxisSizingMode = "FIXED";
+      node.counterAxisSizingMode = "AUTO";
       node.primaryAxisAlignItems = "CENTER";
       node.counterAxisAlignItems = "CENTER";
       node.itemSpacing = 0;
@@ -551,14 +550,13 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
       node.paddingTop = 10;
       node.paddingBottom = 10;
       node.cornerRadius = 999;
-      node.resize(132, 52);
       node.fills = [{ type: "SOLID", color: hexToRgb("#FCFCFC") }];
       node.strokes = [{ type: "SOLID", color: hexToRgb("#383838") }];
       node.strokeWeight = 1.5;
       label.rotation = 0;
       label.textAutoResize = "HEIGHT";
       label.layoutAlign = "STRETCH";
-      label.resize(node.width - node.paddingLeft - node.paddingRight, label.height);
+      label.resize(108, label.height);
       label.textAlignHorizontal = "CENTER";
       break;
     }
