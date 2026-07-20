@@ -830,6 +830,31 @@ function buildOrthogonalRoute(
   sourceSide: ConnectorSide,
   targetSide: ConnectorSide
 ): [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }, { x: number; y: number }] {
+  // Keep perfectly aligned endpoints as a straight line by splitting the line
+  // into three collinear segments. This avoids tiny degenerate middle-segment
+  // stubs that visually appear as an unintended bend after node insertion.
+  if (Math.abs(startPoint.x - endPoint.x) <= GEOMETRY_EPSILON) {
+    const y1 = startPoint.y + (endPoint.y - startPoint.y) / 3;
+    const y2 = startPoint.y + ((endPoint.y - startPoint.y) * 2) / 3;
+    return [
+      startPoint,
+      { x: startPoint.x, y: y1 },
+      { x: startPoint.x, y: y2 },
+      endPoint
+    ];
+  }
+
+  if (Math.abs(startPoint.y - endPoint.y) <= GEOMETRY_EPSILON) {
+    const x1 = startPoint.x + (endPoint.x - startPoint.x) / 3;
+    const x2 = startPoint.x + ((endPoint.x - startPoint.x) * 2) / 3;
+    return [
+      startPoint,
+      { x: x1, y: startPoint.y },
+      { x: x2, y: startPoint.y },
+      endPoint
+    ];
+  }
+
   const sourceIsHorizontal = isHorizontalSide(sourceSide);
   const targetIsHorizontal = isHorizontalSide(targetSide);
 
