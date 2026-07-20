@@ -133,7 +133,7 @@ function emitConnectorPreferenceState(): void {
 }
 
 function emitConnectorSelectionState(): void {
-  const selectableIds = new Set(figma.currentPage.selection.filter((node) => isFrameOrImage(node)).map((node) => node.id));
+  const selectableIds = new Set(figma.currentPage.selection.filter((node) => isConnectableNode(node)).map((node) => node.id));
   const orderedSelectableIds = frameSelectionOrder.filter((id) => selectableIds.has(id));
   figma.ui.postMessage({
     type: "connector-selection-state",
@@ -209,11 +209,15 @@ function isNodeType(value: unknown): value is NodeType {
   return value === "none" || value === "process" || value === "start-end" || value === "yes-no";
 }
 
-function isFrameOrImage(node: SceneNode): node is FrameLikeNode {
+function isShapeOrGroupNode(node: SceneNode): boolean {
+  return node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "GROUP";
+}
+
+function isConnectableNode(node: SceneNode): node is FrameLikeNode {
   if (!("x" in node) || !("width" in node)) {
     return false;
   }
-  return node.type === "FRAME" || isImageNode(node) || isAutoLayoutNode(node);
+  return node.type === "FRAME" || isImageNode(node) || isAutoLayoutNode(node) || isShapeOrGroupNode(node);
 }
 
 function getAttachPoint(
@@ -248,9 +252,9 @@ function isConnectorGroup(node: SceneNode): node is GroupNode {
 
 async function generateConnectorFromSelection(options?: { selected?: FrameLikeNode[]; notify?: boolean }): Promise<void> {
   const notify = options?.notify ?? true;
-  const selected = options?.selected ?? figma.currentPage.selection.filter((node) => isFrameOrImage(node));
+  const selected = options?.selected ?? figma.currentPage.selection.filter((node) => isConnectableNode(node));
   if (selected.length !== 2) {
-    throw new Error("Please select exactly 2 Frame/Image/Auto Layout nodes.");
+    throw new Error("Please select exactly 2 connectable nodes (Frame/Image/Auto Layout/Rectangle/Ellipse/Group).");
   }
 
   updateSelectionOrder();
@@ -273,7 +277,7 @@ function getCurrentSelectablePair(): FrameLikeNode[] | null {
   if (fullSelection.length !== 2) {
     return null;
   }
-  const selectable = fullSelection.filter((node) => isFrameOrImage(node));
+  const selectable = fullSelection.filter((node) => isConnectableNode(node));
   return selectable.length === 2 ? selectable : null;
 }
 
@@ -322,7 +326,7 @@ function resolveSelectionByOrder(selected: FrameLikeNode[]): [FrameLikeNode, Fra
 }
 
 function updateSelectionOrder(): void {
-  const currentIds = figma.currentPage.selection.filter((node) => isFrameOrImage(node)).map((node) => node.id);
+  const currentIds = figma.currentPage.selection.filter((node) => isConnectableNode(node)).map((node) => node.id);
   const currentSet = new Set(currentIds);
 
   frameSelectionOrder = frameSelectionOrder.filter((id) => currentSet.has(id));
@@ -501,9 +505,9 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
       node.strokeWeight = 1.5;
       label.rotation = 0;
       label.textAutoResize = "HEIGHT";
+      label.layoutAlign = "STRETCH";
       label.resize(node.width - node.paddingLeft - node.paddingRight, Math.max(label.height, 16));
-      label.x = node.paddingLeft;
-      label.y = node.height / 2 - label.height / 2;
+      label.textAlignHorizontal = "CENTER";
       break;
     }
     case "process": {
@@ -542,8 +546,8 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
       node.primaryAxisAlignItems = "CENTER";
       node.counterAxisAlignItems = "CENTER";
       node.itemSpacing = 0;
-      node.paddingLeft = 0;
-      node.paddingRight = 0;
+      node.paddingLeft = 12;
+      node.paddingRight = 12;
       node.paddingTop = 0;
       node.paddingBottom = 0;
       node.cornerRadius = 999;
@@ -552,7 +556,10 @@ function applyNodeType(node: FrameNode, nodeType: NodeType, textBehavior: { mode
       node.strokes = [{ type: "SOLID", color: hexToRgb("#383838") }];
       node.strokeWeight = 1.5;
       label.rotation = 0;
-      label.textAutoResize = "WIDTH_AND_HEIGHT";
+      label.textAutoResize = "HEIGHT";
+      label.layoutAlign = "STRETCH";
+      label.resize(node.width - node.paddingLeft - node.paddingRight, Math.max(label.height, 16));
+      label.textAlignHorizontal = "CENTER";
       break;
     }
     case "yes-no": {
