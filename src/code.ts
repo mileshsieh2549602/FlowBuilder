@@ -15,6 +15,7 @@ let previousFrameSelection = new Set<string>();
 let frameSelectionOrder: string[] = [];
 let isSyncingFallbackLinks = false;
 let pendingSyncTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingSyncNodeIds: Set<string> | null = null;
 let fallbackPollingTimer: ReturnType<typeof setInterval> | null = null;
 let debugEnabled = false;
 let isAutoGeneratingConnector = false;
@@ -174,8 +175,8 @@ async function initializeDocumentSync(): Promise<void> {
   try {
     // Required in incremental document mode before subscribing to documentchange.
     await figma.loadAllPagesAsync();
-    figma.on("documentchange", () => {
-      scheduleFallbackSync();
+    figma.on("documentchange", (event) => {
+      scheduleFallbackSync(getChangedNodeIds(event));
     });
     isDocumentSyncReady = true;
   } catch (error) {
@@ -946,6 +947,8 @@ async function syncFallbackLinks(): Promise<void> {
   if (isSyncingFallbackLinks) {
     return;
   }
+  const changedNodeIds = pendingSyncNodeIds;
+  pendingSyncNodeIds = null;
   isSyncingFallbackLinks = true;
   try {
     const links = figma.currentPage.findAll(
@@ -960,12 +963,22 @@ async function syncFallbackLinks(): Promise<void> {
       if (!startNodeId || !endNodeId) {
         continue;
       }
+      if (
+        changedNodeIds &&
+        changedNodeIds.size > 0 &&
+        !changedNodeIds.has(startNodeId) &&
+        !changedNodeIds.has(endNodeId) &&
+        !changedNodeIds.has(wrapper.id)
+      ) {
+        continue;
+      }
 
       const [startNode, endNode] = await Promise.all([
         figma.getNodeByIdAsync(startNodeId),
         figma.getNodeByIdAsync(endNodeId)
       ]);
       if (!startNode || !endNode || !("x" in startNode) || !("x" in endNode)) {
+        wrapper.remove();
         continue;
       }
 
@@ -980,7 +993,15 @@ async function syncFallbackLinks(): Promise<void> {
   }
 }
 
-function scheduleFallbackSync(): void {
+function scheduleFallbackSync(changedNodeIds?: Set<string>): void {
+  if (!pendingSyncNodeIds) {
+    pendingSyncNodeIds = new Set<string>();
+  }
+  if (changedNodeIds && changedNodeIds.size > 0) {
+    for (const id of changedNodeIds) {
+      pendingSyncNodeIds.add(id);
+    }
+  }
   if (pendingSyncTimer) {
     return;
   }
@@ -988,6 +1009,23 @@ function scheduleFallbackSync(): void {
     pendingSyncTimer = null;
     void syncFallbackLinks();
   }, SYNC_THROTTLE_MS);
+}
+
+function getChangedNodeIds(event: DocumentChangeEvent): Set<string> {
+  const changedIds = new Set<string>();
+  for (const change of event.documentChanges) {
+    const entry = change as unknown as { id?: string; nodeId?: string; node?: { id?: string } };
+    if (typeof entry.id === "string" && entry.id.length > 0) {
+      changedIds.add(entry.id);
+    }
+    if (typeof entry.nodeId === "string" && entry.nodeId.length > 0) {
+      changedIds.add(entry.nodeId);
+    }
+    if (entry.node && typeof entry.node.id === "string" && entry.node.id.length > 0) {
+      changedIds.add(entry.node.id);
+    }
+  }
+  return changedIds;
 }
 
 function ensureFallbackPolling(): void {
