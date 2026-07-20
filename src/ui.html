@@ -51,10 +51,16 @@
       }
 
       .section-description {
-        margin: 4px 0 0;
+        margin: 0;
         font-size: 11px;
         line-height: 13px;
         color: #676767;
+      }
+
+      .section-header {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
       }
 
       .connector-preview {
@@ -249,8 +255,10 @@
   <body>
     <div class="panel">
       <div class="panel-card">
-        <p class="section-title">Connector Sides</p>
-        <p class="section-description">Hold &lt;Shift&gt;, then select two layers.</p>
+        <div class="section-header">
+          <p class="section-title">Connector Sides</p>
+          <p class="section-description">Hold &lt;Shift&gt;, then select two layers.</p>
+        </div>
         <div class="connector-preview">
           <div class="endpoint">
             <button class="side-btn side-top" data-endpoint="source" data-side="TOP" type="button">-</button>
@@ -271,8 +279,10 @@
       </div>
 
       <div class="panel-card node-type-card">
-        <p class="section-title">Node Type</p>
-        <p class="section-description">Click a connector or select a Flow Node, then choose a node type.</p>
+        <div class="section-header">
+          <p class="section-title">Node Type</p>
+          <p class="section-description">Click a connector or select a Flow Node, then choose a node type.</p>
+        </div>
         <div class="node-types">
           <button class="node-type-button none" id="nodeTypeNone" data-node-type="none" type="button">
             <div class="node-type-icon"></div>
