@@ -15,16 +15,31 @@
 
       body {
         margin: 0;
-        padding: 24px;
-        background: #ffffff;
+        padding: 20px;
+        min-height: 100vh;
+        background: linear-gradient(134.626deg, #ccedfe 13.595%, #d1e6ff 57.28%, #96c6fe 95.373%);
         color: #000000;
       }
 
       .panel {
-        width: 320px;
+        width: 360px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .panel-card {
+        width: 100%;
+        padding: 20px;
+        border-radius: 12px;
+        background: #f1fafe;
         display: flex;
         flex-direction: column;
         gap: 20px;
+      }
+
+      .node-type-card {
+        position: relative;
       }
 
       .section-title {
@@ -42,15 +57,11 @@
         color: #676767;
       }
 
-      .connector-block {
-        width: 223px;
-      }
-
       .connector-preview {
-        margin-top: 20px;
         display: flex;
         align-items: center;
         gap: 12px;
+        width: 100%;
       }
 
       .endpoint {
@@ -128,13 +139,7 @@
         background: #96c6fe;
       }
 
-      .divider {
-        width: 100%;
-        border-top: 1px solid #d2d2d2;
-      }
-
       .node-types {
-        margin-top: 20px;
         display: flex;
         gap: 20px;
       }
@@ -217,7 +222,10 @@
       }
 
       .status {
-        margin-top: 8px;
+        position: absolute;
+        left: 20px;
+        right: 20px;
+        bottom: 8px;
         min-height: 16px;
         font-size: 11px;
         line-height: 16px;
@@ -240,7 +248,7 @@
   </head>
   <body>
     <div class="panel">
-      <div class="connector-block">
+      <div class="panel-card">
         <p class="section-title">Connector Sides</p>
         <p class="section-description">Hold &lt;Shift&gt;, then select two layers.</p>
         <div class="connector-preview">
@@ -262,9 +270,7 @@
         </div>
       </div>
 
-      <div class="divider"></div>
-
-      <div>
+      <div class="panel-card node-type-card">
         <p class="section-title">Node Type</p>
         <p class="section-description">Click a connector or select a Flow Node, then choose a node type.</p>
         <div class="node-types">
