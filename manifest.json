@@ -1,6 +1,6 @@
 {
   "name": "Flow Bar",
-  "id": "flow-builder-for-figma-plugin",
+  "id": "1661371165302806408",
   "api": "1.0.0",
   "main": "dist/code.js",
   "ui": "dist/ui.html",
