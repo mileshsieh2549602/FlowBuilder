@@ -1,5 +1,5 @@
 {
-  "name": "Flow Builder for Figma",
+  "name": "Flow Bar",
   "id": "flow-builder-for-figma-plugin",
   "api": "1.0.0",
   "main": "dist/code.js",
