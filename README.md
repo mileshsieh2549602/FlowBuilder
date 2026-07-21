@@ -1,2 +1,2 @@
-# FlowBuilder
+# Flow Bar
 Figma plugin
